@@ -2,6 +2,7 @@
 // Licensed under the MIT license.
 
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import {
@@ -62,6 +63,110 @@ async function ready(directory) {
     await setTimeout(10);
   }
 }
+
+test(
+  'Finish handles build completion between polling checks',
+  { skip: process.platform !== 'win32' },
+  async (t) => {
+    for (const scenario of [
+      'already-exited',
+      'exit-after-condition',
+      'exit-during-process-check',
+      'failed-after-condition',
+      'missing-exit-code',
+    ]) {
+      await t.test(scenario, async (t) => {
+        const root = await temporaryDirectory(t);
+        await writeFile(path.join(root, 'pid'), '12345');
+        if (scenario === 'already-exited') {
+          await writeFile(path.join(root, 'exit-code'), '0');
+        }
+        const script = `
+          $ErrorActionPreference = 'Stop'
+          $global:exitChecks = 0
+          $global:signatureChecks = 0
+          $global:metadataChecks = 0
+          function Test-Path {
+            param($LiteralPath)
+            if ([IO.Path]::GetFileName($LiteralPath) -eq 'exit-code') {
+              $global:exitChecks++
+              if ($global:exitChecks -gt 5) { throw 'Finish did not terminate' }
+              if ($global:exitChecks -eq 1 -and $env:ESRP_TEST_SCENARIO -in @('exit-after-condition', 'failed-after-condition')) {
+                [IO.File]::WriteAllText($LiteralPath, $env:ESRP_TEST_EXIT_CODE)
+                return $false
+              }
+            }
+            return Microsoft.PowerShell.Management\\Test-Path -LiteralPath $LiteralPath
+          }
+          function Get-Process {
+            param($Id, $ErrorAction)
+            if ($Id -ne 12345) { throw 'Unexpected packaging process ID' }
+            if ($env:ESRP_TEST_SCENARIO -eq 'exit-during-process-check') {
+              [IO.File]::WriteAllText((Join-Path $env:HUABU_ESRP_STATE 'exit-code'), '0')
+            }
+            return $null
+          }
+          function Start-Sleep { param($Seconds) }
+          function Get-AuthenticodeSignature {
+            param($LiteralPath)
+            $global:signatureChecks++
+            return [pscustomobject]@{
+              Status = 'Valid'
+              SignerCertificate = [pscustomobject]@{ Subject = 'CN=Test Publisher' }
+              TimeStamperCertificate = [pscustomobject]@{ Subject = 'CN=Test Timestamp' }
+            }
+          }
+          function node {
+            param($File)
+            $global:metadataChecks++
+            $global:LASTEXITCODE = 0
+          }
+          & $env:ESRP_TEST_CONTROLLER -Action Finish
+          if ($global:signatureChecks -ne 4 -or $global:metadataChecks -ne 1) {
+            throw 'Finish skipped release validation'
+          }
+          Write-Output 'FINISH_VALIDATED'
+        `;
+        const result = spawnSync(
+          process.env.TF_BUILD ? 'pwsh.exe' : 'powershell.exe',
+          [
+            '-NoProfile',
+            '-NonInteractive',
+            '-EncodedCommand',
+            Buffer.from(script, 'utf16le').toString('base64'),
+          ],
+          {
+            encoding: 'utf8',
+            timeout: 15000,
+            env: {
+              ...process.env,
+              HUABU_ESRP_STATE: root,
+              ESRP_TEST_CONTROLLER: path.join(
+                import.meta.dirname,
+                'esrp-build.ps1',
+              ),
+              ESRP_TEST_SCENARIO: scenario,
+              ESRP_TEST_EXIT_CODE:
+                scenario === 'failed-after-condition' ? '7' : '0',
+            },
+          },
+        );
+        assert.ifError(result.error);
+        const output = `${result.stdout}\n${result.stderr}`;
+        if (scenario === 'failed-after-condition') {
+          assert.notEqual(result.status, 0, output);
+          assert.match(output, /Desktop packaging failed with exit code 7/);
+        } else if (scenario === 'missing-exit-code') {
+          assert.notEqual(result.status, 0, output);
+          assert.match(output, /packaging process is no longer running/);
+        } else {
+          assert.equal(result.status, 0, output);
+          assert.match(output, /FINISH_VALIDATED/);
+        }
+      });
+    }
+  },
+);
 
 test('handoff blocks packaging until verified signed bytes are returned', async (t) => {
   const root = await temporaryDirectory(t);

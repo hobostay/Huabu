@@ -119,8 +119,14 @@ switch ($Action) {
     }
     'Finish' {
         $deadline = [DateTime]::UtcNow.AddMinutes(10)
-        while (-not (Test-Path -LiteralPath (Join-Path $root 'exit-code'))) {
-            Assert-BuildRunning
+        $exitFile = Join-Path $root 'exit-code'
+        $processId = [int](Get-Content -LiteralPath (Join-Path $root 'pid'))
+        while (-not (Test-Path -LiteralPath $exitFile)) {
+            # Completion can arrive between the loop condition and the process lookup.
+            if (-not (Get-Process -Id $processId -ErrorAction SilentlyContinue) -and -not (Test-Path -LiteralPath $exitFile)) {
+                Show-BuildLog
+                throw 'The ESRP packaging process is no longer running and did not record an exit code'
+            }
             if ([DateTime]::UtcNow -ge $deadline) {
                 Show-BuildLog
                 throw 'Timed out finishing the signed installer'
@@ -128,7 +134,7 @@ switch ($Action) {
             Start-Sleep -Seconds 1
         }
         Show-BuildLog
-        $exitCode = [int](Get-Content -LiteralPath (Join-Path $root 'exit-code'))
+        $exitCode = [int](Get-Content -LiteralPath $exitFile)
         if ($exitCode -ne 0) { throw "Desktop packaging failed with exit code $exitCode" }
         foreach ($name in @('app', 'elevate', 'uninstaller', 'installer')) {
             $null = Get-VerifiedSignature (Join-Path $root "$name\artifact.exe")
