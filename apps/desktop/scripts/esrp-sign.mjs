@@ -93,8 +93,24 @@ export async function sign(configuration) {
   const { output, version } = JSON.parse(
     await readFile(path.join(root, 'build.json'), 'utf8'),
   );
+  const resolvedPath = path.resolve(configuration.path);
+  const ffmpeg = path.resolve(
+    output,
+    'win-unpacked',
+    'resources',
+    'server',
+    'media',
+    'win32-x64',
+    'ffmpeg.exe',
+  );
+  if (resolvedPath === ffmpeg) {
+    console.log(
+      'Preserving audited third-party FFmpeg bytes without re-signing',
+    );
+    return;
+  }
   const stage = Object.entries(signingPaths(output, version)).find(
-    ([, file]) => file === path.resolve(configuration.path),
+    ([, file]) => file === resolvedPath,
   )?.[0];
   if (!stage) {
     throw new Error(

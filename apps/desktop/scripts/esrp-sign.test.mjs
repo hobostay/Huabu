@@ -31,6 +31,9 @@ import {
 } from './esrp-sign.mjs';
 import { generateBlockmap, validateRelease } from './esrp-validate.mjs';
 
+const require = createRequire(import.meta.url);
+const builderRequire = createRequire(require.resolve('electron-builder'));
+
 async function temporaryDirectory(t) {
   const root = await mkdtemp(path.join(os.tmpdir(), 'huabu-esrp-test-'));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -235,6 +238,95 @@ test('CI hook rejects unreviewed binaries and repeated signing passes', async (t
   );
 });
 
+test('CI hook preserves only the bundled Windows FFmpeg executable', async (t) => {
+  const root = await temporaryDirectory(t);
+  setSigningState(t, root);
+  await writeFile(
+    path.join(root, 'build.json'),
+    JSON.stringify({ output: root, version: '1.2.3' }),
+  );
+  const ffmpeg = path.join(
+    root,
+    'win-unpacked',
+    'resources',
+    'server',
+    'media',
+    'win32-x64',
+    'ffmpeg.exe',
+  );
+  await mkdir(path.dirname(ffmpeg), { recursive: true });
+  await writeFile(ffmpeg, 'audited third-party FFmpeg bytes');
+  const before = await sha256(ffmpeg);
+  await sign({ path: ffmpeg, hash: 'sha256' });
+  assert.equal(await sha256(ffmpeg), before);
+  for (const stage of stages)
+    assert.equal(existsSync(path.join(root, stage)), false);
+  for (const other of [
+    path.join(path.dirname(ffmpeg), 'unexpected.exe'),
+    path.join(root, 'win-unpacked', 'resources', 'ffmpeg.exe'),
+  ]) {
+    await assert.rejects(
+      sign({ path: other, hash: 'sha256' }),
+      /Unreviewed binary/,
+    );
+  }
+  const base = YAML.parse(
+    await readFile(new URL('../electron-builder.yml', import.meta.url), 'utf8'),
+  );
+  assert.ok(
+    base.extraResources.some(
+      (resource) =>
+        resource.from === '../server/dist-bundle/media' &&
+        resource.to === 'server/media',
+    ),
+  );
+});
+
+test('electron-builder generates the pre-sign feed without a local certificate', async () => {
+  const config = YAML.parse(
+    await readFile(
+      new URL('../electron-builder.esrp.yml', import.meta.url),
+      'utf8',
+    ),
+  );
+  const base = YAML.parse(
+    await readFile(new URL('../electron-builder.yml', import.meta.url), 'utf8'),
+  );
+  const { WindowsSignToolManager } = builderRequire(
+    'app-builder-lib/out/codeSign/windowsSignToolManager.js',
+  );
+  const { getAppUpdatePublishConfiguration } = builderRequire(
+    'app-builder-lib/out/publish/PublishManager.js',
+  );
+  const { Platform } = builderRequire('app-builder-lib');
+  const manager = new WindowsSignToolManager({
+    platformSpecificBuildOptions: config.win,
+    getCscLink: () => undefined,
+  });
+  assert.notEqual(config.win.verifyUpdateCodeSignature, false);
+  assert.equal(await manager.computedPublisherName.value, null);
+  const appInfo = { updaterCacheDirName: 'huabu-updater', channel: null };
+  const feed = await getAppUpdatePublishConfiguration(
+    {
+      platform: Platform.WINDOWS,
+      platformSpecificBuildOptions: config.win,
+      config: base,
+      info: { config: base, appInfo },
+      appInfo,
+      expandMacro: (value) => value,
+      isForceCodeSigningVerification: true,
+      signingManager: { value: Promise.resolve(manager) },
+    },
+    null,
+    1,
+    false,
+  );
+  assert.deepEqual(feed, {
+    ...base.publish,
+    updaterCacheDirName: 'huabu-updater',
+  });
+});
+
 test('afterSign preserves the feed and sets the verified publisher before archiving', async (t) => {
   const root = await temporaryDirectory(t);
   setSigningState(t, root);
@@ -381,8 +473,6 @@ test('pipeline uses the v6 contract and an opt-in configuration extending existi
   assert.deepEqual(config.win.signtoolOptions.signingHashAlgorithms, [
     'sha256',
   ]);
-  const require = createRequire(import.meta.url);
-  const builderRequire = createRequire(require.resolve('electron-builder'));
   const { resolveFunction } = builderRequire(
     'app-builder-lib/out/util/resolve.js',
   );
