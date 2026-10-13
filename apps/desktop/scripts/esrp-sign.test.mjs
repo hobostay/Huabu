@@ -1,0 +1,304 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT license.
+
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import {
+  copyFile,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
+import { createRequire } from 'node:module';
+import os from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+import { setTimeout } from 'node:timers/promises';
+import { gzipSync, gunzipSync } from 'node:zlib';
+import YAML from 'yaml';
+import {
+  afterSign,
+  handoff,
+  readReceipt,
+  sha256,
+  sign,
+  signingPaths,
+  stages,
+} from './esrp-sign.mjs';
+import { generateBlockmap, validateRelease } from './esrp-validate.mjs';
+
+async function temporaryDirectory(t) {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'huabu-esrp-test-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  return root;
+}
+
+function setSigningState(t, root) {
+  const previous = process.env.HUABU_ESRP_STATE;
+  process.env.HUABU_ESRP_STATE = root;
+  t.after(() => {
+    if (previous === undefined) delete process.env.HUABU_ESRP_STATE;
+    else process.env.HUABU_ESRP_STATE = previous;
+  });
+}
+
+async function receipt(directory, publisher = 'CN=Test Publisher') {
+  await writeFile(
+    path.join(directory, 'signed.json'),
+    JSON.stringify({
+      publisher,
+      sha256: await sha256(path.join(directory, 'artifact.exe')),
+    }),
+  );
+}
+
+async function ready(directory) {
+  const deadline = Date.now() + 5000;
+  while (!existsSync(path.join(directory, 'ready'))) {
+    assert.ok(Date.now() < deadline, 'Hook must expose its signing input');
+    await setTimeout(10);
+  }
+}
+
+test('handoff blocks packaging until verified signed bytes are returned', async (t) => {
+  const root = await temporaryDirectory(t);
+  const original = path.join(root, 'Huabu.exe');
+  await writeFile(original, 'unsigned input');
+  let finished = false;
+  const pending = handoff(original, 'app', root, 5000).then(() => {
+    finished = true;
+  });
+  await ready(path.join(root, 'app'));
+  assert.equal(finished, false);
+  assert.equal(await readFile(original, 'utf8'), 'unsigned input');
+  await writeFile(path.join(root, 'app', 'artifact.exe'), 'signed input');
+  await receipt(path.join(root, 'app'));
+  await pending;
+  assert.equal(await readFile(original, 'utf8'), 'signed input');
+  await assert.rejects(handoff(original, 'app', root), /EEXIST/);
+});
+
+test('handoff fails closed on unchanged input, corrupted receipt, abort and timeout', async (t) => {
+  for (const mode of ['unchanged', 'corrupted', 'abort', 'timeout']) {
+    await t.test(mode, async (t) => {
+      const root = await temporaryDirectory(t);
+      const original = path.join(root, 'Huabu.exe');
+      await writeFile(original, 'unsigned');
+      const pending = handoff(
+        original,
+        'app',
+        root,
+        mode === 'timeout' ? 50 : 5000,
+      );
+      const rejected = assert.rejects(
+        pending,
+        /did not change|Invalid ESRP|aborted|Timed out/,
+      );
+      const directory = path.join(root, 'app');
+      await ready(directory);
+      if (mode === 'unchanged') await receipt(directory);
+      if (mode === 'corrupted') {
+        await receipt(directory);
+        await writeFile(path.join(directory, 'artifact.exe'), 'tampered');
+      }
+      if (mode === 'abort') await writeFile(path.join(root, 'abort'), '');
+      await rejected;
+      assert.equal(await readFile(original, 'utf8'), 'unsigned');
+    });
+  }
+});
+
+test('CI hook rejects unreviewed binaries and repeated signing passes', async (t) => {
+  const root = await temporaryDirectory(t);
+  setSigningState(t, root);
+  await writeFile(
+    path.join(root, 'build.json'),
+    JSON.stringify({ output: root, version: '1.2.3' }),
+  );
+  await assert.rejects(
+    sign({ path: path.join(root, 'third-party.dll'), hash: 'sha256' }),
+    /Unreviewed binary/,
+  );
+  await assert.rejects(sign({ hash: 'sha1' }), /one SHA-256/);
+  await assert.rejects(sign({ hash: 'sha256', isNest: true }), /one SHA-256/);
+  assert.equal(
+    path.basename(signingPaths(root, '1.2.3').uninstaller),
+    'Huabu-Setup-1.2.3.__uninstaller.exe',
+  );
+});
+
+test('afterSign preserves the feed and sets the verified publisher before archiving', async (t) => {
+  const root = await temporaryDirectory(t);
+  setSigningState(t, root);
+  await mkdir(path.join(root, 'app'));
+  await writeFile(path.join(root, 'app', 'artifact.exe'), 'signed app');
+  await receipt(path.join(root, 'app'));
+  const resources = path.join(root, 'win-unpacked', 'resources');
+  await mkdir(resources, { recursive: true });
+  const feed = {
+    provider: 'github',
+    owner: 'microsoft',
+    repo: 'Huabu',
+    updaterCacheDirName: 'huabu-updater',
+  };
+  await writeFile(path.join(resources, 'app-update.yml'), YAML.stringify(feed));
+  await afterSign({
+    appOutDir: path.dirname(resources),
+    electronPlatformName: 'win32',
+  });
+  assert.deepEqual(
+    YAML.parse(await readFile(path.join(resources, 'app-update.yml'), 'utf8')),
+    {
+      ...feed,
+      publisherName: ['CN=Test Publisher'],
+    },
+  );
+  await assert.rejects(
+    afterSign({ electronPlatformName: 'darwin' }),
+    /Windows-only/,
+  );
+});
+
+async function releaseFixture(t) {
+  const root = await temporaryDirectory(t);
+  const output = path.join(root, 'output');
+  const version = '1.2.3';
+  const files = signingPaths(output, version);
+  await writeFile(
+    path.join(root, 'build.json'),
+    JSON.stringify({ output, version }),
+  );
+  for (const stage of stages) {
+    const directory = path.join(root, stage);
+    await mkdir(directory);
+    await writeFile(path.join(directory, 'artifact.exe'), `signed ${stage}`);
+    await receipt(directory);
+    if (stage !== 'uninstaller') {
+      await mkdir(path.dirname(files[stage]), { recursive: true });
+      await copyFile(path.join(directory, 'artifact.exe'), files[stage]);
+    }
+  }
+  const bytes = await readFile(files.installer);
+  const sha512 = createHash('sha512').update(bytes).digest('base64');
+  const metadata = {
+    version,
+    files: [
+      { url: path.basename(files.installer), size: bytes.length, sha512 },
+    ],
+    path: path.basename(files.installer),
+    sha512,
+  };
+  await writeFile(path.join(output, 'latest.yml'), YAML.stringify(metadata));
+  await writeFile(
+    path.join(output, 'win-unpacked', 'resources', 'app-update.yml'),
+    YAML.stringify({ publisherName: ['CN=Test Publisher'] }),
+  );
+  await generateBlockmap(files.installer);
+  return { root, output, files, metadata };
+}
+
+test('release validation checks signed bytes, metadata and actual blockmap checksums', async (t) => {
+  const { root, output, files, metadata } = await releaseFixture(t);
+  await validateRelease(root);
+  assert.equal(existsSync(path.join(root, 'blockmap-verification.exe')), false);
+  metadata.files[0].size++;
+  await writeFile(path.join(output, 'latest.yml'), YAML.stringify(metadata));
+  await assert.rejects(validateRelease(root));
+  metadata.files[0].size--;
+  await writeFile(path.join(output, 'latest.yml'), YAML.stringify(metadata));
+  const blockmap = JSON.parse(
+    gunzipSync(await readFile(`${files.installer}.blockmap`)),
+  );
+  blockmap.files[0].checksums[0] = 'invalid-checksum';
+  await writeFile(
+    `${files.installer}.blockmap`,
+    gzipSync(JSON.stringify(blockmap)),
+  );
+  await assert.rejects(validateRelease(root), /Blockmap must match/);
+  await writeFile(path.join(root, 'app', 'artifact.exe'), 'tampered');
+  await assert.rejects(readReceipt(path.join(root, 'app')), /Invalid ESRP/);
+});
+
+test('pipeline uses the v6 contract and an opt-in configuration extending existing targets', async () => {
+  const pipeline = YAML.parse(
+    await readFile(
+      new URL('../../../azure-pipelines.yml', import.meta.url),
+      'utf8',
+    ),
+  );
+  const windows = pipeline.jobs.find((job) => job.job === 'Windows');
+  const loop = windows.steps.find((step) =>
+    Object.keys(step)[0].includes('each stage'),
+  );
+  const steps = Object.values(loop)[0];
+  const task = steps.find((step) => step.task === 'EsrpCodeSigning@6');
+  assert.equal(task.inputs.FolderPath, '$(HUABU_ESRP_STATE)\\${{ stage }}');
+  assert.equal(task.inputs.Pattern, 'artifact.exe');
+  assert.equal(task.inputs.UseMinimatch, true);
+  for (const [input, variable] of Object.entries({
+    ConnectedServiceName: 'CodeSignConnectedServiceName',
+    AppRegistrationClientId: 'CodeSignAppRegistrationClientId',
+    AppRegistrationTenantId: 'CodeSignAppRegistrationTenantId',
+    AuthAKVName: 'CodeSignKeyVaultName',
+    esrpClientId: 'CodeSignEsrpClientId',
+    AuthSignCertName: 'CodeSignAuthSignCertificateName',
+  }))
+    assert.equal(task.inputs[input], `$(${variable})`);
+  const operations = JSON.parse(task.inputs.inlineOperation);
+  assert.deepEqual(
+    operations.map((operation) => operation.operationCode),
+    ['SigntoolSign', 'SigntoolVerify'],
+  );
+  assert.ok(
+    operations.every(
+      (operation) =>
+        operation.keyCode === 'CP-230012' &&
+        !Array.isArray(operation.parameters),
+    ),
+  );
+  assert.ok(
+    windows.steps.find(
+      (step) =>
+        step.condition === 'always()' && step.pwsh.includes('-Action Stop'),
+    ),
+  );
+  const config = YAML.parse(
+    await readFile(
+      new URL('../electron-builder.esrp.yml', import.meta.url),
+      'utf8',
+    ),
+  );
+  assert.equal(config.extends, './electron-builder.yml');
+  assert.equal(config.forceCodeSigning, true);
+  assert.deepEqual(config.win.signtoolOptions.signingHashAlgorithms, [
+    'sha256',
+  ]);
+  const require = createRequire(import.meta.url);
+  const builderRequire = createRequire(require.resolve('electron-builder'));
+  const { resolveFunction } = builderRequire(
+    'app-builder-lib/out/util/resolve.js',
+  );
+  const hook = new URL('./esrp-sign.mjs', import.meta.url);
+  const { fileURLToPath } = await import('node:url');
+  assert.equal(
+    await resolveFunction(
+      'commonjs',
+      fileURLToPath(hook),
+      'sign',
+      path.dirname(fileURLToPath(hook)),
+    ),
+    sign,
+  );
+  assert.equal(
+    await resolveFunction(
+      'commonjs',
+      fileURLToPath(hook),
+      'afterSign',
+      path.dirname(fileURLToPath(hook)),
+    ),
+    afterSign,
+  );
+});
