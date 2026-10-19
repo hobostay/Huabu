@@ -68,6 +68,8 @@ Desktop packaging pins `electron-builder` to `26.16.1` in `apps/desktop/package.
 
 Local builds, GitHub Actions, and Azure Pipelines use the same packaging dependency. Both CI paths install with `--frozen-lockfile`; no workflow-specific password substitution or signing bypass is required. Developer ID signing and Apple notarization remain enabled.
 
+The workspace overrides the `node-gyp > undici` packaging dependency to the published `6.29.0` release, within node-gyp's declared `^6.25.0` range. The previous `6.29.1` lockfile resolution is unavailable from the configured package feed and prevents a frozen dependency restore. This scoped override does not change the application's runtime Undici dependency.
+
 ## Azure Pipelines packaging
 
 The root [azure-pipelines.yml](../../azure-pipelines.yml) adds independent Microsoft-hosted Windows and macOS packaging jobs alongside the existing GitHub Actions release workflow. In Azure DevOps, select **New Pipeline > GitHub > microsoft/Huabu > Existing Azure Pipelines YAML file** and choose `/azure-pipelines.yml`; authorize repository access through the Azure DevOps GitHub integration. This pipeline publishes build artifacts only, not GitHub Releases, and does not change the application's GitHub update feed.
