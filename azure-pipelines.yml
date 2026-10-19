@@ -13,6 +13,10 @@ parameters:
     displayName: 'Release tag for manual branch runs (e.g. v0.1.0-rc.1)'
     type: string
     default: ''
+  - name: buildMacOS
+    displayName: Build macOS alongside Windows
+    type: boolean
+    default: true
 
 jobs:
   - job: Windows
@@ -20,8 +24,6 @@ jobs:
     timeoutInMinutes: '120'
     pool:
       vmImage: windows-latest
-    variables:
-      HUABU_ESRP_STATE: '$(Agent.TempDirectory)\huabu-esrp-$(Build.BuildId)-$(System.JobAttempt)'
     steps:
       - checkout: self
 
@@ -58,6 +60,7 @@ jobs:
           pkg.version = version;
           fs.writeFileSync(path, `${JSON.stringify(pkg, null, 2)}\n`);
           console.log(`Desktop version: ${version}`);
+          console.log(`##vso[task.setvariable variable=WindowsInstallerName]Huabu-Setup-${version}.exe`);
           '@ | node
         displayName: Set app version from release tag
         env:
@@ -66,8 +69,8 @@ jobs:
       - pwsh: pnpm install --frozen-lockfile
         displayName: Install dependencies
 
-      - pwsh: node --test .\apps\desktop\scripts\esrp-sign.test.mjs
-        displayName: Test ESRP signing handoffs and release validation
+      - pwsh: node --test .\apps\desktop\scripts\esrp-release.test.mjs
+        displayName: Test signed installer metadata refresh
 
       - pwsh: pnpm run build:agentlet
         displayName: Build agentlet workspace packages
@@ -79,8 +82,7 @@ jobs:
               throw "Configure the Azure Pipelines variable: $name"
             }
           }
-          & .\apps\desktop\scripts\esrp-build.ps1 -Action Start
-        displayName: Start desktop packaging with ESRP signing hooks
+        displayName: Validate ESRP signing configuration
         env:
           CodeSignAuthSignCertificateName: $(CodeSignAuthSignCertificateName)
           CodeSignAppRegistrationTenantId: $(CodeSignAppRegistrationTenantId)
@@ -89,60 +91,80 @@ jobs:
           CodeSignConnectedServiceName: $(CodeSignConnectedServiceName)
           CodeSignKeyVaultName: $(CodeSignKeyVaultName)
 
-      # These handoffs follow electron-builder's NSIS signing order.
-      - ${{ each stage in split('app,elevate,uninstaller,installer', ',') }}:
-          - pwsh: '& .\apps\desktop\scripts\esrp-build.ps1 -Action Wait -Stage ${{ stage }}'
-            displayName: Wait for ${{ stage }} signing input
+      - pwsh: |
+          pnpm run build:desktop:win
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $installer = Join-Path (Join-Path $env:BUILD_SOURCESDIRECTORY '..\huabu-electron-out') $env:WINDOWS_INSTALLER_NAME
+          $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256 -ErrorAction Stop).Hash
+          Write-Host "##vso[task.setvariable variable=WindowsUnsignedInstallerHash]$hash"
+        displayName: Build desktop installer
+        env:
+          WINDOWS_INSTALLER_NAME: $(WindowsInstallerName)
 
-          - task: EsrpCodeSigning@6
-            displayName: ESRP sign and verify ${{ stage }} using WIF
-            timeoutInMinutes: 25
-            inputs:
-              ConnectedServiceName: $(CodeSignConnectedServiceName)
-              AppRegistrationClientId: $(CodeSignAppRegistrationClientId)
-              AppRegistrationTenantId: $(CodeSignAppRegistrationTenantId)
-              AuthAKVName: $(CodeSignKeyVaultName)
-              useMsiAuthentication: true
-              esrpClientId: $(CodeSignEsrpClientId)
-              AuthSignCertName: $(CodeSignAuthSignCertificateName)
-              FolderPath: '$(HUABU_ESRP_STATE)\${{ stage }}'
-              Pattern: artifact.exe
-              UseMinimatch: true
-              ServiceEndpointUrl: 'https://api.esrp.microsoft.com/api/v2'
-              signConfigType: inlineSignParams
-              inlineOperation: |
-                [
-                  {
-                    "keyCode": "CP-230012",
-                    "operationCode": "SigntoolSign",
-                    "parameters": {
-                      "OpusName": "Microsoft",
-                      "OpusInfo": "http://www.microsoft.com",
-                      "FileDigest": "/fd \"SHA256\"",
-                      "PageHash": "/NPH",
-                      "TimeStamp": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
-                    },
-                    "toolName": "sign",
-                    "toolVersion": "1.0"
-                  },
-                  {
-                    "keyCode": "CP-230012",
-                    "operationCode": "SigntoolVerify",
-                    "parameters": {},
-                    "toolName": "sign",
-                    "toolVersion": "1.0"
-                  }
-                ]
+      - task: UseDotNet@2
+        displayName: Install .NET 8 for ESRP
+        inputs:
+          version: 8.x
 
-          - pwsh: '& .\apps\desktop\scripts\esrp-build.ps1 -Action Resume -Stage ${{ stage }}'
-            displayName: Verify ${{ stage }} signature and resume packaging
+      # Installer-only signing: embedded application binaries and the uninstaller are out of scope.
+      - task: EsrpCodeSigning@6
+        displayName: ESRP sign and verify Windows installer using WIF
+        timeoutInMinutes: 25
+        inputs:
+          ConnectedServiceName: $(CodeSignConnectedServiceName)
+          AppRegistrationClientId: $(CodeSignAppRegistrationClientId)
+          AppRegistrationTenantId: $(CodeSignAppRegistrationTenantId)
+          AuthAKVName: $(CodeSignKeyVaultName)
+          useMsiAuthentication: true
+          esrpClientId: $(CodeSignEsrpClientId)
+          AuthSignCertName: $(CodeSignAuthSignCertificateName)
+          FolderPath: '$(Build.SourcesDirectory)/../huabu-electron-out'
+          Pattern: $(WindowsInstallerName)
+          UseMinimatch: true
+          SessionTimeout: 20
+          ServiceEndpointUrl: 'https://api.esrp.microsoft.com/api/v2'
+          signConfigType: inlineSignParams
+          inlineOperation: |
+            [
+              {
+                "keyCode": "CP-230012",
+                "operationCode": "SigntoolSign",
+                "parameters": {
+                  "OpusName": "Microsoft",
+                  "OpusInfo": "http://www.microsoft.com",
+                  "FileDigest": "/fd \"SHA256\"",
+                  "PageHash": "/NPH",
+                  "TimeStamp": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
+                },
+                "toolName": "sign",
+                "toolVersion": "1.0"
+              },
+              {
+                "keyCode": "CP-230012",
+                "operationCode": "SigntoolVerify",
+                "parameters": {},
+                "toolName": "sign",
+                "toolVersion": "1.0"
+              }
+            ]
 
-      - pwsh: '& .\apps\desktop\scripts\esrp-build.ps1 -Action Finish'
-        displayName: Finish packaging and verify signed release metadata
-
-      - pwsh: '& .\apps\desktop\scripts\esrp-build.ps1 -Action Stop'
-        displayName: Clean up ESRP packaging process
-        condition: always()
+      - pwsh: |
+          $ErrorActionPreference = 'Stop'
+          $output = Join-Path $env:BUILD_SOURCESDIRECTORY '..\huabu-electron-out'
+          $installer = Join-Path $output $env:WINDOWS_INSTALLER_NAME
+          $signature = Get-AuthenticodeSignature -LiteralPath $installer
+          if ($signature.Status -ne 'Valid' -or -not $signature.SignerCertificate -or -not $signature.TimeStamperCertificate) {
+            throw "Missing valid timestamped Authenticode signature: $installer ($($signature.Status))"
+          }
+          if ((Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash -eq $env:UNSIGNED_INSTALLER_HASH) {
+            throw 'ESRP did not modify the installer'
+          }
+          node .\apps\desktop\scripts\esrp-release.mjs $output
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        displayName: Verify installer signature and refresh update metadata
+        env:
+          WINDOWS_INSTALLER_NAME: $(WindowsInstallerName)
+          UNSIGNED_INSTALLER_HASH: $(WindowsUnsignedInstallerHash)
 
       - pwsh: |
           $output = Join-Path $env:BUILD_SOURCESDIRECTORY '../huabu-electron-out'
@@ -162,6 +184,7 @@ jobs:
 
   - job: macOS
     displayName: Build macOS desktop
+    condition: and(succeeded(), ${{ parameters.buildMacOS }})
     timeoutInMinutes: '120'
     pool:
       vmImage: macos-latest
