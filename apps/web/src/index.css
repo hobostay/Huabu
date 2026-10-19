@@ -22,6 +22,8 @@
   /* Backgrounds */
   --bg-default: #f5f5f5;
   --bg-surface: #ffffff;
+  --bg-sidebar: #fbfaf7;
+  --bg-sidebar-selected: #eae7e0;
   --bg-note-surface: var(--bg-surface);
 
   --bg-hover: #f2f2f2;
@@ -37,21 +39,22 @@
   --info-bg-hover: #dbeafe;
 
   /* Status: success */
-  --success: #1b5e20;
+  --success: #1e7a3f;
   --success-light: #a4c9a4;
-  --success-bg: #f3f9f3;
+  --success-bg: #e3f2e8;
   --success-bg-hover: #deeedd;
+  --ink-reference-highlight: #dcfce7;
 
   /* Status: warning */
-  --warning: #d97a2b;
+  --warning: #eb7f31;
   --warning-light: #e2b38d;
   --warning-bg: #fdf6f1;
   --warning-bg-hover: #f7e5d6;
 
   /* Status: danger */
-  --danger: #b82132;
+  --danger: #c0392b;
   --danger-light: #e3b2a9;
-  --danger-bg: #fcf8f8;
+  --danger-bg: #fbe5e2;
   --danger-bg-hover: #fbe2e1;
 
   /* AI colors */
@@ -92,6 +95,8 @@
   --fg-inverse: #191919;
   --bg-default: oklch(0.145 0 0);
   --bg-surface: oklch(0.22 0 0);
+  --bg-sidebar: var(--bg-default);
+  --bg-sidebar-selected: var(--bg-hover);
   --bg-note-surface: color-mix(
     in srgb,
     var(--bg-surface) 92%,
@@ -106,6 +111,7 @@
   --success-light: #22c55e;
   --success-bg: oklch(0.22 0.04 150);
   --success-bg-hover: oklch(0.28 0.05 150);
+  --ink-reference-highlight: var(--success-bg-hover);
 
   /* Status: warning */
   --warning: #fbbf24;
@@ -157,6 +163,8 @@
   --color-fg-inverse: var(--fg-inverse);
 
   --color-bg-default: var(--bg-default);
+  --color-sidebar: var(--bg-sidebar);
+  --color-sidebar-selected: var(--bg-sidebar-selected);
   --color-surface: var(--bg-surface);
   --color-hover: var(--bg-hover);
   --color-inverse: var(--bg-inverse);
@@ -178,6 +186,7 @@
   --color-success-light: var(--success-light);
   --color-success-bg: var(--success-bg);
   --color-success-bg-hover: var(--success-bg-hover);
+  --color-ink-reference-highlight: var(--ink-reference-highlight);
 
   /* Status: warning */
   --color-warning: var(--warning);

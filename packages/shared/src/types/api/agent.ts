@@ -18,6 +18,8 @@
 
 import { z } from 'zod';
 
+import { agentWorkingDirectorySchema } from './agent-profile.js';
+import { inkResourceReferencesSchema } from './ink-sigil.js';
 import { REASONING_EFFORT_VALUES } from './llm.js';
 import {
   INK_INTERPRETATION_TEXT_LIMIT,
@@ -329,6 +331,7 @@ export const agentRequestSchema = z
     canvasId: z.string().min(1).optional(),
     attachments: z.array(chatAttachmentSchema).optional(),
     groundingVisual: visibleCanvasGroundingSchema.optional(),
+    inkResources: inkResourceReferencesSchema.optional(),
     /**
      * Anchor a node-neighbourhood preamble to this node id. When set,
      * the server resolves the node's surrounding-canvas context (see
@@ -351,6 +354,8 @@ export const agentRequestSchema = z
      * the persistent ChatStore on the client is the source of truth.
      */
     agentBinding: agentBindingSchema.optional(),
+    /** External conversation directory, frozen at first realization. */
+    cwd: agentWorkingDirectorySchema.optional(),
     /**
      * User-invoked skill ids parsed from leading `/<id>` tokens in the
      * chat input (see `useInternalSlashCommands` on the web side). The
@@ -382,6 +387,13 @@ export const agentRequestSchema = z
   })
   .superRefine((request, context) => {
     if (request.inputKind !== 'ink-intent') {
+      if (request.inkResources?.length) {
+        context.addIssue({
+          code: 'custom',
+          path: ['inkResources'],
+          message: 'Resource Sigils are only valid for Ink requests',
+        });
+      }
       if (request.groundingVisual) {
         context.addIssue({
           code: 'custom',
@@ -411,12 +423,46 @@ export const agentRequestSchema = z
     const operands = selectedGroundingOperands(
       request.canvasContext?.selectedNodes ?? [],
     );
-    if (operands.ordinaryNodeIds.length > 0 && !request.groundingVisual) {
+    if (
+      (operands.ordinaryNodeIds.length > 0 || request.inkResources?.length) &&
+      !request.groundingVisual
+    ) {
       context.addIssue({
         code: 'custom',
         path: ['groundingVisual'],
         message: 'Mixed Ink requests require visible Canvas grounding',
       });
+    }
+    const selectedStrokes = new Map(
+      operands.strokeSubsets.map((subset) => [
+        subset.nodeId,
+        new Set(subset.strokeIds),
+      ]),
+    );
+    const boundStrokes = new Set<string>();
+    for (const [index, reference] of (request.inkResources ?? []).entries()) {
+      if (
+        reference.sources.some(
+          (source) => !selectedStrokes.get(source.nodeId)?.has(source.strokeId),
+        )
+      ) {
+        context.addIssue({
+          code: 'custom',
+          path: ['inkResources', index, 'sources'],
+          message:
+            'Every Sigil source stroke must belong to the submitted Ink selection',
+        });
+      }
+      for (const source of reference.sources) {
+        if (boundStrokes.has(source.strokeId)) {
+          context.addIssue({
+            code: 'custom',
+            path: ['inkResources', index, 'sources'],
+            message: 'A stroke cannot belong to multiple resource Sigils',
+          });
+        }
+        boundStrokes.add(source.strokeId);
+      }
     }
     if (request.groundingVisual) {
       const groundingStrokes = new Map(

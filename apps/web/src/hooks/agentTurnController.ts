@@ -12,6 +12,10 @@ import {
   type WebSearchToolResponse,
 } from '@huabu/shared';
 import {
+  inkResourceAttachments,
+  inkSelectionNodeIds,
+} from '@huabu/shared/canvas-engine';
+import {
   readInkInterpretation,
   settleInkInterpretation,
 } from '@huabu/shared/ink-interpretation';
@@ -39,6 +43,11 @@ import {
   shouldComposeConversationOwner,
   validateConversationView,
 } from '@/store/conversationOwner';
+import {
+  beginConversationRealization,
+  conversationControlTarget,
+  resolveConversationPreparation,
+} from '@/store/conversationPreparation';
 import {
   invalidateConversationTitle,
   refreshConversationTitleAfterStream,
@@ -811,6 +820,7 @@ export interface AgentTurnInput {
   sources: CapturedAgentTurnSources;
   attachments?: ChatAttachment[];
   groundingVisual?: VisibleCanvasGrounding;
+  inkResources?: AgentRequest['inkResources'];
   invokedSkills?: string[];
   quotedComments?: AgentRequest['quotedComments'];
 }
@@ -934,10 +944,20 @@ export function prepareAgentTurnRetry(
     sources,
     content: message.content,
     inputKind: message.inputKind ?? 'text',
-    attachments: message.attachments,
+    attachments: message.inkResources?.length
+      ? message.attachments?.filter(
+          (attachment) =>
+            attachment.source !== 'selection' ||
+            !attachment.originNodeId ||
+            !message.inkResources?.some(
+              (reference) => reference.targetNodeId === attachment.originNodeId,
+            ),
+        )
+      : message.attachments,
     invokedSkills: message.invokedSkills,
     quotedComments: message.quotedComments,
     groundingVisual: message.groundingVisual,
+    inkResources: message.inkResources,
   });
 }
 
@@ -981,7 +1001,20 @@ export function createAgentTurnUserMessage(
       ? { inkInterpretation: { state: 'pending' as const } }
       : {}),
     groundingVisual: prepared.groundingVisual,
-    attachments: prepared.attachments,
+    inkResources: prepared.inkResources,
+    attachments: prepared.inkResources?.length
+      ? [
+          ...(prepared.attachments ?? []),
+          ...inkResourceAttachments(prepared.inkResources, [
+            ...inkSelectionNodeIds(
+              prepared.sources.canvasContext.selectedNodes,
+            ),
+            ...(prepared.attachments ?? []).flatMap((attachment) =>
+              attachment.originNodeId ? [attachment.originNodeId] : [],
+            ),
+          ]),
+        ]
+      : prepared.attachments,
     ...(selectedNodeIds.length > 0 ? { selectedNodeIds } : {}),
     ...(selectedStrokeIds.length > 0 ? { selectedStrokeIds } : {}),
     ...(prepared.invokedSkills?.length
@@ -1008,6 +1041,9 @@ export async function dispatchAgentTurn(
   const { addMessage, setThreadLastAction, setThreadLoading } =
     useChatStore.getState();
   const result: AgentTurnResult = { status: 'rejected' };
+  let requestedCwd: string | undefined;
+  let requestDispatched = false;
+  let releasePreparation: ((attempted?: boolean) => void) | undefined;
   const run = async (): Promise<void> => {
     // Per-thread guard: this thread's own loading flag, not any other
     // thread's. The user may already have a stream running in a
@@ -1194,6 +1230,9 @@ export async function dispatchAgentTurn(
       // from `selectedNodes` for the same reason as `selectedNodeIds`
       // above — it is the conversation anchor, not a separate source.
       result.status = 'unknown';
+      requestDispatched = true;
+      releasePreparation?.();
+      releasePreparation = undefined;
       await agentApi.streamMessage(
         prompt,
         threadId,
@@ -1251,10 +1290,12 @@ export async function dispatchAgentTurn(
         {
           inputKind,
           groundingVisual: prepared.groundingVisual,
+          inkResources: prepared.inkResources,
           canvasContext,
           canvasId: requestScope.canvasId || undefined,
           attachments,
           agentBinding,
+          cwd: requestedCwd,
           anchorNodeId: requestScope.anchorNodeId,
           invokedSkills,
           quotedComments,
@@ -1321,7 +1362,31 @@ export async function dispatchAgentTurn(
       }
     }
   };
-  await run();
+  const preparation = resolveConversationPreparation(session);
+  if (preparation.pending) {
+    return { status: 'busy' };
+  }
+  if (
+    preparation.binding.kind === 'external' &&
+    (prompt.trim() || quotedComments?.length || inputKind === 'ink-intent')
+  ) {
+    requestedCwd = conversationControlTarget(session).cwd;
+    try {
+      releasePreparation = beginConversationRealization(session);
+    } catch (error) {
+      return {
+        status: 'busy',
+        error: error instanceof Error ? error : new Error(String(error)),
+      };
+    }
+    try {
+      await run();
+    } finally {
+      releasePreparation?.(requestDispatched);
+    }
+  } else {
+    await run();
+  }
   return result;
 }
 

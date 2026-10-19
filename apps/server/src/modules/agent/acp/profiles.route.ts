@@ -42,6 +42,12 @@ import {
   hasDiscoverySource,
   mergeProfileCustomData,
 } from './harness-profile-discovery.js';
+import { readPickerDeviceId } from './picker-device.js';
+import {
+  discoverProfileCapabilities,
+  ProfileCapabilitiesError,
+  readProfileCapabilities,
+} from './profile-capabilities.js';
 import { invalidateProfileSchemaCache } from './profile-schema-cache.js';
 import { isOwnerRequest } from '../../security/owner.js';
 import {
@@ -54,6 +60,7 @@ import type { AgentletConnection } from '@agenetes/agentlet-host';
 import type {
   AcpProfileMutationResponse,
   AcpProfilesListResponse,
+  AcpProfileCapabilitiesResponse,
   AgentProfileView,
   ApiResult,
 } from '@huabu/shared';
@@ -128,6 +135,53 @@ async function validateHarnessLaunch(
 }
 
 const acpProfilesRoutes: FastifyPluginAsync = async (app) => {
+  for (const method of ['GET', 'POST'] as const) {
+    app.route<{
+      Params: { id: string };
+      Reply: ApiResult<AcpProfileCapabilitiesResponse>;
+    }>({
+      method,
+      url: `/profiles/:id/capabilities${method === 'POST' ? '/discover' : ''}`,
+      handler: async (request, reply) => {
+        if (denyRemote(request, reply)) return;
+        const parsed = agentProfileParamsSchema.safeParse(request.params);
+        if (!parsed.success) {
+          request.log.warn(
+            { issues: parsed.error.issues },
+            'Invalid capability Profile',
+          );
+          return reply.status(400).send({
+            message: 'Invalid Agent Profile',
+            code: 'validation_failed',
+          });
+        }
+        try {
+          return method === 'GET'
+            ? readProfileCapabilities(parsed.data.id)
+            : await discoverProfileCapabilities(parsed.data.id, request.log);
+        } catch (error) {
+          request.log.warn(
+            { err: error, profileId: parsed.data.id },
+            'Agent capability discovery failed',
+          );
+          return reply
+            .status(
+              error instanceof ProfileCapabilitiesError ? error.status : 503,
+            )
+            .send({
+              code:
+                error instanceof ProfileCapabilitiesError
+                  ? error.code
+                  : 'capability_discovery_failed',
+              message:
+                error instanceof Error
+                  ? error.message
+                  : 'Failed to load agent options',
+            });
+        }
+      },
+    });
+  }
   // ── List ─────────────────────────────────────────────────────────────
   app.get<{ Reply: ApiResult<AcpProfilesListResponse> }>(
     '/profiles',
@@ -142,6 +196,17 @@ const acpProfilesRoutes: FastifyPluginAsync = async (app) => {
       }
       const profiles = registry.listProfiles();
       const connected = getConnectedAgentlets();
+      let folderPickerAgentletId: string | null = null;
+      try {
+        const localId = await readPickerDeviceId();
+        if (connected.some((device) => device.agentletId === localId))
+          folderPickerAgentletId = localId;
+      } catch (error) {
+        request.log.warn(
+          { err: error },
+          'Local folder picker device identity is unavailable',
+        );
+      }
       const profileCounts = new Map<string, number>();
       for (const profile of profiles) {
         const agentletId = resolveConnectedAgentletId(profile.agentletId);
@@ -179,6 +244,7 @@ const acpProfilesRoutes: FastifyPluginAsync = async (app) => {
           .filter((profile) => resolveConnectedAgentletId(profile.agentletId))
           .map((profile) => profile.id),
         connectedDevices,
+        folderPickerAgentletId,
         agentlet: getDaemonSupervisor().getStatus(),
         agentDefaults: getAgentDefaults(),
       };

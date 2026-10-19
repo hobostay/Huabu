@@ -245,6 +245,7 @@ export const agentApi = {
       canvasId?: string;
       attachments?: ChatAttachment[];
       groundingVisual?: VisibleCanvasGrounding;
+      inkResources?: AgentRequest['inkResources'];
       /**
        * Anchor a node-neighbourhood preamble to this node id. When
        * set, the server resolves the surrounding-canvas context from
@@ -261,6 +262,7 @@ export const agentApi = {
        * Defaults to internal when omitted.
        */
       agentBinding?: AgentBinding;
+      cwd?: string;
       /**
        * Skill ids the user explicitly invoked by typing `/<id>` in the
        * chat input (parsed by `useInternalSlashCommands`). Forwarded
@@ -292,11 +294,13 @@ export const agentApi = {
         ? options.attachments
         : undefined,
       groundingVisual: options?.groundingVisual,
+      inkResources: options?.inkResources,
       quotedComments: options?.quotedComments?.length
         ? options.quotedComments
         : undefined,
       anchorNodeId: options?.anchorNodeId,
       agentBinding: options?.agentBinding,
+      cwd: options?.cwd,
       invokedSkills: options?.invokedSkills?.length
         ? options.invokedSkills
         : undefined,
