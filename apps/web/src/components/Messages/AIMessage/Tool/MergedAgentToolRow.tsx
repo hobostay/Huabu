@@ -17,7 +17,10 @@ import { ToolKindIcon } from './ToolKindIcon';
 import { Button } from '../../../Common/Button';
 import { Loading } from '../../../Common/Loading';
 import { NodeRef } from '../../../Common/NodeRef';
-import { ASSISTANT_ROW_CLASS_NAME } from '../../AssistantDisclosure';
+import {
+  ASSISTANT_DISCLOSURE_BUTTON_CLASS_NAME,
+  ASSISTANT_ROW_CLASS_NAME,
+} from '../../AssistantDisclosure';
 
 import type { AgentToolPart } from '@huabu/shared';
 
@@ -436,7 +439,7 @@ export function MergedAgentToolRow({
         className={
           showIcon
             ? 'flex shrink-0 items-center gap-1.5'
-            : 'absolute top-1/2 left-0 flex size-3 -translate-y-1/2 items-center justify-center'
+            : 'absolute top-1/2 left-1 flex size-3 -translate-y-1/2 items-center justify-center'
         }
       >
         {isExecuting ? (
@@ -550,12 +553,12 @@ export function MergedAgentToolRow({
             size="sm"
             aria-expanded={isExpanded}
             onClick={() => setIsExpanded(!isExpanded)}
-            className="min-w-0 flex-1 justify-start rounded-none p-0 text-left font-normal"
+            className={ASSISTANT_DISCLOSURE_BUTTON_CLASS_NAME}
           >
             <span className="min-w-0 truncate">{title}</span>
             <ChevronRight
               size={10}
-              className={`text-fg-muted/50 shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+              className={`text-fg-muted shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''}`}
             />
           </Button>
         </div>

@@ -22,6 +22,7 @@ import type {
 
 interface UserMessageProps {
   content: string;
+  isFirst?: boolean;
   quotedComments?: QuotedComment[];
   inputKind?: AgentInputKind;
   inkInterpretation?: InkInterpretation;
@@ -45,6 +46,7 @@ interface UserMessageProps {
 
 export const UserMessage = memo(function UserMessage({
   content,
+  isFirst = false,
   quotedComments,
   inputKind,
   inkInterpretation,
@@ -79,10 +81,14 @@ export const UserMessage = memo(function UserMessage({
   const hasSkills = !!invokedSkills && invokedSkills.length > 0;
 
   return (
-    <div data-chat-user-message className="my-3 flex flex-col items-end">
+    <div
+      data-chat-user-message
+      className={cn('my-3 flex flex-col items-end', isFirst && 'mt-0')}
+    >
       <div
         className={cn(
-          'mt-2 flex max-w-[80%] min-w-0 flex-col items-end gap-1',
+          'flex max-w-[80%] min-w-0 flex-col items-end gap-1',
+          !isFirst && 'mt-2',
           quotedComments?.length && 'w-full',
         )}
       >
