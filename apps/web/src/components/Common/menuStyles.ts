@@ -13,12 +13,14 @@ export const MENU_LABEL_CLASS =
 export const MENU_ICON_CLASS = 'shrink-0 text-inherit';
 
 export const MENU_HINT_CLASS =
-  'text-fg-subtle ml-2 shrink-0 text-xs font-normal';
+  'text-fg-muted ml-2 shrink-0 text-xs font-normal';
 
 export const MENU_CHECK_CLASS =
   'text-info ml-auto flex w-3.5 shrink-0 justify-center';
 
 export const MENU_SECTION_LABEL_CLASS =
-  'text-fg-subtle px-2 py-1 text-left text-xs leading-[18px] font-normal select-none';
+  'text-fg-muted px-2 py-1 text-left text-xs leading-[18px] font-medium select-none';
+
+export const MENU_GROUP_CLASS = 'mt-2 first:mt-0';
 
 export const MENU_SEPARATOR_CLASS = 'bg-edge-default my-1 h-px shrink-0';

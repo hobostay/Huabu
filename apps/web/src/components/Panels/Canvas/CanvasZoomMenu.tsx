@@ -142,7 +142,7 @@ export function CanvasZoomMenu() {
             >
               <label
                 htmlFor={`${id}-input`}
-                className="text-fg-subtle mb-1.5 block text-xs"
+                className="text-fg-muted mb-1.5 block text-xs"
               >
                 {t('canvasControls.zoomLevel')}
               </label>
@@ -165,7 +165,7 @@ export function CanvasZoomMenu() {
                 />
                 <span
                   aria-hidden="true"
-                  className="text-fg-subtle pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs"
+                  className="text-fg-muted pointer-events-none absolute inset-y-0 right-2 flex items-center text-xs"
                 >
                   %
                 </span>

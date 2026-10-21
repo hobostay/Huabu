@@ -353,6 +353,37 @@ describe('Popover', () => {
     );
   });
 
+  it('observes the coordinate boundary only while manual positioning is active', async () => {
+    container = document.createElement('div');
+    document.body.append(container);
+    const boundary = document.createElement('div');
+    const trigger = document.createElement('button');
+    document.body.append(boundary, trigger);
+    root = createRoot(container);
+    const observe = vi.spyOn(ResizeObserver.prototype, 'observe');
+    try {
+      for (const reference of [undefined, trigger, undefined]) {
+        observe.mockClear();
+        await act(async () =>
+          root?.render(
+            <Popover
+              boundary={boundary}
+              reference={reference}
+              position={{ x: 20, y: 20 }}
+            >
+              <span>Content</span>
+            </Popover>,
+          ),
+        );
+        expect(observe.mock.calls.some(([target]) => target === boundary)).toBe(
+          !reference,
+        );
+      }
+    } finally {
+      observe.mockRestore();
+    }
+  });
+
   it('blurs focused content before outside dismissal but not on Escape', async () => {
     const events: string[] = [];
     container = document.createElement('div');
