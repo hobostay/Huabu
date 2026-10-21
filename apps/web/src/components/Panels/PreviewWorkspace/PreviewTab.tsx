@@ -315,10 +315,10 @@ export function PreviewTab({
                 zIndex: isDragging ? 1 : undefined,
               }}
               className={cn(
-                'group relative flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-lg px-2 text-sm',
+                'group relative flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-md px-2 text-sm',
                 'focus-visible:outline-info focus-visible:outline-1 focus-visible:-outline-offset-2',
                 isActive
-                  ? 'bg-bg-default text-fg-default'
+                  ? 'bg-bg-default text-fg-default font-medium'
                   : 'text-fg-muted hover:bg-hover hover:text-fg-default',
                 // Italic marks the reusable inspection slot, per §9.2.
                 tab.transient && 'italic',
