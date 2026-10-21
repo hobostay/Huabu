@@ -33,6 +33,9 @@ import { FLOATING_CHROME_PROPS } from './floatingChrome';
 
 type FloatingPosition = { x: number; y: number };
 
+export const POPOVER_SURFACE_CLASS =
+  'border-edge-default bg-surface rounded-lg border shadow-bottom';
+
 const PopoverContainerContext = createContext<Element | null>(null);
 
 interface EscapeLayer {
@@ -181,7 +184,7 @@ export type PopoverProps = Pick<
 
   /**
    * Extra className(s) merged onto the outer container `<div>`.
-   * The default styled container provides border, shadow, rounded-md, and bg.
+   * The default styled container provides border, shadow, rounded-lg, and bg.
    */
   className?: string;
 
@@ -359,6 +362,7 @@ export const Popover: FC<PopoverProps> = ({
 
   // Re-clamp on window resize so the panel stays within bounds
   useEffect(() => {
+    if (reference) return;
     window.addEventListener('resize', updateClampedPosition);
     if (boundary)
       window.addEventListener('scroll', updateClampedPosition, true);
@@ -367,11 +371,12 @@ export const Popover: FC<PopoverProps> = ({
       if (boundary)
         window.removeEventListener('scroll', updateClampedPosition, true);
     };
-  }, [boundary, updateClampedPosition]);
+  }, [boundary, reference, updateClampedPosition]);
 
   // Re-clamp when the panel's own size changes (e.g. content switches from
   // a loading spinner to a longer list) so it doesn't overflow.
   useEffect(() => {
+    if (reference) return;
     const el = containerRef.current;
     if (!el) return;
 
@@ -379,7 +384,7 @@ export const Popover: FC<PopoverProps> = ({
     ro.observe(el);
     if (boundary) ro.observe(boundary);
     return () => ro.disconnect();
-  }, [boundary, updateClampedPosition]);
+  }, [boundary, reference, updateClampedPosition]);
 
   // Dismiss on outside pointer-down.
   //
@@ -466,10 +471,8 @@ export const Popover: FC<PopoverProps> = ({
   }, [visible, onOpenAutoFocus]);
   const portalContainer = container ?? parentContainer ?? document.body;
 
-  const contextValue = useMemo(() => contentElement, [contentElement]);
-
   const panel = (
-    <PopoverContainerContext.Provider value={contextValue}>
+    <PopoverContainerContext.Provider value={contentElement}>
       {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- Callers supply the role and its keyboard contract together. */}
       <div
         id={id}
@@ -485,7 +488,8 @@ export const Popover: FC<PopoverProps> = ({
         }}
         {...FLOATING_CHROME_PROPS}
         className={cn(
-          'border-edge-default bg-surface fixed max-w-[var(--popover-available-width,calc(100vw-24px))] min-w-0 rounded-md border shadow-lg',
+          POPOVER_SURFACE_CLASS,
+          'fixed max-w-[var(--popover-available-width,calc(100vw-24px))] min-w-0',
           className,
         )}
         style={{

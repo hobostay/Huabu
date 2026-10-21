@@ -14,6 +14,10 @@ import {
 } from '@/components/Common/DropdownMenu';
 import { FLOATING_CHROME_PROPS } from '@/components/Common/floatingChrome';
 import {
+  MENU_GROUP_CLASS,
+  MENU_SECTION_LABEL_CLASS,
+} from '@/components/Common/menuStyles';
+import {
   AgentMenuOptions,
   type AgentChoice,
 } from '@/components/Panels/ChatPanel/agentMenu';
@@ -213,7 +217,7 @@ export function InkAgentDestinationPicker({
             </span>
             <span className="min-w-0 truncate">{label}</span>
             {(agent || continuing) && (
-              <span className="text-fg-subtle shrink-0 text-[10px]">
+              <span className="text-fg-muted shrink-0 text-xs">
                 {t(
                   continuing
                     ? 'toolbar.inkAgentPicker.continue'
@@ -283,11 +287,12 @@ export function InkAgentDestinationPicker({
             </p>
           )}
           {conversations.length > 0 && (
-            <div role="group" aria-labelledby={`${id}-continue`}>
-              <div
-                id={`${id}-continue`}
-                className="text-fg-muted px-3 pt-1.5 pb-1 text-[10px] tracking-wider uppercase"
-              >
+            <div
+              role="group"
+              aria-labelledby={`${id}-continue`}
+              className={MENU_GROUP_CLASS}
+            >
+              <div id={`${id}-continue`} className={MENU_SECTION_LABEL_CLASS}>
                 {t('toolbar.inkAgentPicker.continueCanvas')}
               </div>
               {conversations.map((conversation) => {
@@ -348,12 +353,11 @@ export function InkAgentDestinationPicker({
             aria-label={t('toolbar.inkAgentPicker.newConversation')}
             className={cn(
               '[&_[role=menuitem]>span:nth-child(2)]:min-w-0 [&_[role=menuitem]>span:nth-child(2)]:shrink [&_[role=menuitem]>span:nth-child(2)]:truncate',
-              conversations.length > 0 && 'border-edge-default mt-1 border-t',
+              MENU_GROUP_CLASS,
             )}
           >
             <AgentMenuOptions
               heading={t('toolbar.inkAgentPicker.newConversation')}
-              externalHeadingStyle="subheading"
               currentBinding={
                 continuing
                   ? NO_CURRENT_BINDING

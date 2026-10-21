@@ -389,6 +389,12 @@ describe('ExpandedNodePanel edge navigation', () => {
     expect(document.querySelector('[role="menu"]')?.textContent).not.toContain(
       'Sources',
     );
+    const group = document.querySelector('[role="menu"] > div');
+    expect(group?.classList.contains('mt-2')).toBe(true);
+    expect(group?.classList.contains('border-t')).toBe(false);
+    expect(group?.firstElementChild?.classList.contains('font-medium')).toBe(
+      true,
+    );
   });
 
   it('navigates an edge without arrows through the neutral control', () => {

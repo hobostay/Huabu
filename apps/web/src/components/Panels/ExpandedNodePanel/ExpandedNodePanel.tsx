@@ -37,6 +37,10 @@ import {
 } from '../../../store/previewWorkspace/store.ts';
 import { DropdownMenu, DropdownMenuItem } from '../../Common/DropdownMenu.tsx';
 import { InlineEditableTitle } from '../../Common/InlineEditableTitle';
+import {
+  MENU_GROUP_CLASS,
+  MENU_SECTION_LABEL_CLASS,
+} from '../../Common/menuStyles';
 import { NodePreviewContent } from '../../Nodes/NodePreviewContent.tsx';
 import { PreviewHeaderButton } from '../../Nodes/PreviewHeaderButton';
 import { PreviewHeaderSlotContext } from '../../Nodes/PreviewHeaderSlot.tsx';
@@ -179,33 +183,33 @@ const ConnectedNodeMenu = ({
         aria-label={menuLabel}
         onKeyDown={handleMenuKeyDown}
       >
-        {groups.map((group, groupIndex) => {
+        {groups.map((group) => {
           return (
-            <div
-              key={group.direction}
-              className={clsx(
-                groupIndex > 0 && 'border-edge-default mt-1 border-t pt-1',
-              )}
-            >
-              <div className="text-fg-subtle flex items-center justify-between gap-4 px-3 py-1 text-xs font-medium uppercase">
+            <div key={group.direction} className={MENU_GROUP_CLASS}>
+              <div
+                className={clsx(
+                  MENU_SECTION_LABEL_CLASS,
+                  'flex items-center justify-between gap-4',
+                )}
+              >
                 <span>{group.label}</span>
                 {group.shortcut &&
                   (group.direction === 'incoming' ? (
                     <ArrowLeft
                       size={14}
                       style={{ strokeWidth: 2 }}
-                      className="text-fg-subtle shrink-0"
+                      className="text-fg-muted shrink-0"
                       aria-label={group.shortcut}
                     />
                   ) : group.direction === 'outgoing' ? (
                     <ArrowRight
                       size={14}
                       style={{ strokeWidth: 2 }}
-                      className="text-fg-subtle shrink-0"
+                      className="text-fg-muted shrink-0"
                       aria-label={group.shortcut}
                     />
                   ) : (
-                    <span className="text-fg-subtle text-xs normal-case">
+                    <span className="text-fg-muted text-xs">
                       {group.shortcut}
                     </span>
                   ))}

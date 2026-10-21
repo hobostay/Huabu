@@ -205,14 +205,20 @@ describe('InkAgentDestinationPicker', () => {
     const externalHeading = [...newGroup.querySelectorAll('div')].find(
       (element) => element.textContent === en.chat.externalAgents,
     );
-    expect(externalHeading?.classList.contains('text-fg-subtle')).toBe(true);
-    expect(externalHeading?.classList.contains('px-3')).toBe(true);
+    expect(externalHeading?.classList.contains('text-fg-muted')).toBe(true);
+    expect(externalHeading?.classList.contains('px-2')).toBe(true);
     expect(externalHeading?.classList.contains('uppercase')).toBe(false);
     expect(externalHeading?.querySelector('.bg-edge-default')).toBeNull();
     const continueHeading = required(groups[0]).firstElementChild;
     const newHeading = newGroup.firstElementChild;
-    expect(continueHeading?.classList.contains('uppercase')).toBe(true);
-    expect(newHeading?.classList.contains('uppercase')).toBe(true);
+    expect(continueHeading?.classList.contains('uppercase')).toBe(false);
+    expect(newHeading?.classList.contains('uppercase')).toBe(false);
+    for (const heading of [continueHeading, newHeading, externalHeading]) {
+      expect(heading?.classList.contains('font-medium')).toBe(true);
+      expect(heading?.classList.contains('text-xs')).toBe(true);
+    }
+    expect(newGroup.classList.contains('mt-2')).toBe(true);
+    expect(newGroup.classList.contains('border-t')).toBe(false);
   });
 
   it('shows unresolved conversation choice without implying a new conversation', async () => {
