@@ -569,9 +569,10 @@ describe('InkAgentDestinationPicker', () => {
     expect(trigger().textContent).toBe('选择 Agent');
     await openMenu();
     expect(menu()?.textContent).toContain('新建会话');
-    expect(menu()?.textContent).not.toContain('继续会话 · 当前画布');
+    expect(menu()?.textContent).not.toContain('继续会话');
     expect(menu()?.textContent).not.toContain('当前画布暂无可继续的会话');
     await render({ conversations });
-    expect(menu()?.textContent).toContain('继续会话 · 当前画布');
+    expect(menu()?.textContent).toContain('继续会话');
+    expect(menu()?.textContent).not.toContain('当前画布');
   });
 });

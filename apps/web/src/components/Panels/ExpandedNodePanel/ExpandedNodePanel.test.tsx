@@ -389,8 +389,11 @@ describe('ExpandedNodePanel edge navigation', () => {
     expect(document.querySelector('[role="menu"]')?.textContent).not.toContain(
       'Sources',
     );
-    const group = document.querySelector('[role="menu"] .mt-2');
-    expect(group?.classList.contains('mt-2')).toBe(true);
+    const heading = [...document.querySelectorAll('[role="menu"] span')].find(
+      (element) => element.textContent === 'Destinations',
+    );
+    const group = heading?.parentElement?.parentElement;
+    expect(group?.classList.contains('mt-4')).toBe(true);
     expect(group?.classList.contains('border-t')).toBe(false);
     expect(group?.firstElementChild?.classList.contains('font-normal')).toBe(
       true,
