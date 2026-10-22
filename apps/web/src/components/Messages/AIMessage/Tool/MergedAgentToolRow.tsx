@@ -12,11 +12,12 @@ import { Check, ChevronRight, X as XIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { NodeRef } from '@/components/Nodes/NodeRef/NodeRef';
+
 import { partIsExecuting, truncate, type ToolPart } from './helpers';
 import { ToolKindIcon } from './ToolKindIcon';
 import { Button } from '../../../Common/Button';
 import { Loading } from '../../../Common/Loading';
-import { NodeRef } from '../../../Common/NodeRef';
 import {
   ASSISTANT_DISCLOSURE_BUTTON_CLASS_NAME,
   ASSISTANT_ROW_CLASS_NAME,

@@ -15,8 +15,7 @@ import { MENU_SEPARATOR_CLASS } from '@/components/Common/menuStyles';
 import { TextInput } from '@/components/Common/TextInput';
 import { MAX_ZOOM, MIN_ZOOM } from '@/config/canvas';
 import { formatShortcutById } from '@/config/shortcuts';
-
-import { fitCanvasContent } from '../CanvasLayerPanel/focusNodesOnCanvas';
+import { fitCanvasContent } from '@/utils/canvasViewport';
 
 export function CanvasZoomMenu() {
   const { t } = useTranslation();

@@ -11,7 +11,7 @@ import { UserMessage } from './UserMessage';
 
 import type { InkInterpretation } from '@huabu/shared';
 
-vi.mock('../Common/NodeRef', () => ({
+vi.mock('@/components/Nodes/NodeRef/NodeRef', () => ({
   NodeRef: ({
     nodeId,
     strokeCount,

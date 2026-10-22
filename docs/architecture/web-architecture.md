@@ -45,6 +45,8 @@ config → (leaf — imports nothing internal)
 
 **Never import upward** — e.g. `utils/` must not import from `components/` or `pages/`.
 
+Common contains reusable UI primitives; canvas node references live in `components/Nodes/NodeRef/` because they resolve node state and navigate the canvas. Shared viewport geometry and fit/reveal operations live in `utils/canvasViewport.ts`, not in a panel directory, so components, hooks, pages, and the canvas store can reuse them without depending on panel implementation.
+
 ---
 
 ## 3. Where the canvas engine lives
@@ -493,7 +495,7 @@ Primary activation validates the row against live Canvas nodes, expands collapse
 - [agent-context.md](./agent-context.md) — how the web assembles agent context.
 - [api-design.md](./api-design.md) — HTTP/SSE contract rules the `api/` clients follow.
 
-Viewport geometry lives in [`focusNodesOnCanvas.ts`](../../apps/web/src/components/Panels/CanvasLayerPanel/focusNodesOnCanvas.ts); [`Canvas.tsx`](../../apps/web/src/components/Panels/Canvas/Canvas.tsx) handles window resizes. [`MainLayout.tsx`](../../apps/web/src/pages/CanvasPage/MainLayout.tsx) owns overlay bounds and the toolbar host. [`overlay-panels.spec.ts`](../../apps/web/e2e/overlay-panels.spec.ts) exercises the real layout through the isolated browser harness.
+Viewport geometry lives in [`canvasViewport.ts`](../../apps/web/src/utils/canvasViewport.ts); [`Canvas.tsx`](../../apps/web/src/components/Panels/Canvas/Canvas.tsx) handles window resizes. [`MainLayout.tsx`](../../apps/web/src/pages/CanvasPage/MainLayout.tsx) owns overlay bounds and the toolbar host. [`overlay-panels.spec.ts`](../../apps/web/e2e/overlay-panels.spec.ts) exercises the real layout through the isolated browser harness.
 
 ---
 
