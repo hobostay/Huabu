@@ -132,7 +132,7 @@ function assignRef<T>(ref: Ref<T> | undefined, value: T | null) {
 
 export type PopoverProps = Pick<
   HTMLAttributes<HTMLDivElement>,
-  'id' | 'role' | 'aria-labelledby' | 'onKeyDown'
+  'id' | 'role' | 'aria-label' | 'aria-labelledby' | 'onKeyDown'
 > & {
   reference?: Element | null;
   placement?: Placement;
@@ -223,6 +223,7 @@ export type PopoverProps = Pick<
 export const Popover: FC<PopoverProps> = ({
   id,
   role,
+  'aria-label': label,
   'aria-labelledby': labelledBy,
   onKeyDown,
   reference,
@@ -281,10 +282,14 @@ export const Popover: FC<PopoverProps> = ({
       size({
         padding: viewportMargin,
         boundary: boundary ?? undefined,
-        apply({ availableWidth, elements }) {
+        apply({ availableWidth, availableHeight, elements }) {
           elements.floating.style.setProperty(
             '--popover-available-width',
             `${Math.max(0, availableWidth)}px`,
+          );
+          elements.floating.style.setProperty(
+            '--popover-available-height',
+            `${Math.max(0, availableHeight)}px`,
           );
         },
       }),
@@ -326,6 +331,10 @@ export const Popover: FC<PopoverProps> = ({
     el.style.setProperty(
       '--popover-available-width',
       `${Math.max(0, bounds.right - bounds.left - viewportMargin * 2)}px`,
+    );
+    el.style.setProperty(
+      '--popover-available-height',
+      `${Math.max(0, bounds.bottom - bounds.top - viewportMargin * 2)}px`,
     );
     const panelRect = el.getBoundingClientRect();
     const anchorRight = anchor === 'top-right' || anchor === 'bottom-right';
@@ -477,6 +486,7 @@ export const Popover: FC<PopoverProps> = ({
       <div
         id={id}
         role={role}
+        aria-label={label}
         aria-labelledby={labelledBy}
         tabIndex={role === 'menu' || role === 'dialog' ? -1 : undefined}
         onKeyDown={onKeyDown}

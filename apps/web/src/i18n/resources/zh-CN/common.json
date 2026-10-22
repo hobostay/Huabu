@@ -1251,7 +1251,7 @@
       "changed": "所选笔迹或接收目标已更改，请重新提交。",
       "continue": "继续",
       "newConversation": "新建会话",
-      "continueCanvas": "继续会话 · 当前画布",
+      "continueCanvas": "继续会话",
       "emptyConversations": "当前画布暂无可继续的会话",
       "menuLabel": "笔迹请求接收目标",
       "newDestinationLabel": "选择接收目标：使用 {{agent}} 新建会话",

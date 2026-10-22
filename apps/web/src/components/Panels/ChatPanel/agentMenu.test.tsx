@@ -99,9 +99,8 @@ describe('AgentMenuOptions', () => {
     const externalHeading = [
       ...container.querySelectorAll('[role="presentation"]'),
     ].find((element) => element.textContent === 'chat.externalAgents');
-    expect(externalHeading?.className).toBe(
-      `${MENU_SECTION_LABEL_CLASS} ${MENU_GROUP_CLASS}`,
-    );
+    expect(externalHeading?.className).toBe(MENU_SECTION_LABEL_CLASS);
+    expect(externalHeading?.parentElement?.className).toBe(MENU_GROUP_CLASS);
     expect(container.querySelectorAll('[role="separator"]')).toHaveLength(0);
     expect(container.querySelectorAll('[role="menuitem"]')[2]?.className).toBe(
       MENU_ITEM_CLASS,

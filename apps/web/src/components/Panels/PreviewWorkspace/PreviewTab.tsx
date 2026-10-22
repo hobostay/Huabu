@@ -16,7 +16,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Globe, MessageCircle, X } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { CANVAS_NODE_TYPES, OFFICE_FORMATS } from '@huabu/shared';
@@ -31,6 +31,7 @@ import {
 import { Button } from '../../Common/Button';
 import { cn } from '../../Common/cn';
 import { DropdownMenu, DropdownMenuItem } from '../../Common/DropdownMenu';
+import { MENU_SEPARATOR_CLASS } from '../../Common/menuStyles';
 import { Tooltip } from '../../Common/Tooltip';
 import {
   buildOfficeFilterKey,
@@ -176,7 +177,6 @@ export function PreviewTab({
   const { t } = useTranslation();
   const connectionDescription = useAcpConnectionDescription(chatConnection);
   const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const renameLabel = t(
     tab.target.kind === 'chat' ? 'chat.renameTitle' : 'node.rename',
   );
@@ -240,16 +240,11 @@ export function PreviewTab({
       >
         <DropdownMenu
           floating
-          contentRole="presentation"
+          aria-label={title}
           placement="bottom-start"
           open={menuOpen}
           onOpenChange={setMenuOpen}
           triggerWrapperClassName="flex min-w-0 flex-1"
-          onOpenAutoFocus={() =>
-            menuRef.current
-              ?.querySelector<HTMLButtonElement>('button:not(:disabled)')
-              ?.focus()
-          }
           trigger={
             <div
               ref={setNodeRef}
@@ -377,45 +372,9 @@ export function PreviewTab({
           }
         >
           <div
-            ref={menuRef}
-            role="menu"
-            tabIndex={-1}
-            aria-label={title}
             onBlur={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget))
                 setMenuOpen(false);
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') {
-                event.preventDefault();
-                event.stopPropagation();
-                setMenuOpen(false);
-                document
-                  .getElementById(tabElementId)
-                  ?.focus({ preventScroll: true });
-                return;
-              }
-              if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key))
-                return;
-              event.preventDefault();
-              const items = Array.from(
-                event.currentTarget.querySelectorAll<HTMLButtonElement>(
-                  '[role="menuitem"]:not(:disabled)',
-                ),
-              );
-              const index = items.findIndex(
-                (item) => item === document.activeElement,
-              );
-              const next =
-                event.key === 'Home'
-                  ? 0
-                  : event.key === 'End'
-                    ? items.length - 1
-                    : (index +
-                        (event.key === 'ArrowDown' ? 1 : -1) +
-                        items.length) %
-                      items.length;
-              items[next]?.focus();
             }}
           >
             {canRequestRename && (
@@ -444,7 +403,7 @@ export function PreviewTab({
               </DropdownMenuItem>
             )}
             {(canRequestRename || tab.transient) && (
-              <div className="border-edge-default my-1 border-t" />
+              <div role="separator" className={MENU_SEPARATOR_CLASS} />
             )}
             <DropdownMenuItem
               onClick={() => {

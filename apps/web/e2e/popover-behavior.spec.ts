@@ -124,11 +124,11 @@ for (const width of [320, 1024]) {
       const first = menu.getByRole('menuitem', { name: 'Text', exact: true });
       await expect(menu.getByText('List', { exact: true })).toHaveCSS(
         'font-weight',
-        '500',
+        '400',
       );
       await expect(
         menu.getByText('List', { exact: true }).locator('..'),
-      ).toHaveCSS('margin-top', '8px');
+      ).toHaveCSS('margin-top', '16px');
       await expect(first).toHaveCSS('font-weight', '400');
       await expect(first).toBeFocused();
       await menu.screenshot({
@@ -230,7 +230,7 @@ for (const width of [320, 1024]) {
       await expect(slash).toBeVisible();
       const nativeHeadings = slash.locator('.menu-group h6');
       await expect(nativeHeadings.first()).toHaveCSS('font-size', '12px');
-      await expect(nativeHeadings.first()).toHaveCSS('font-weight', '500');
+      await expect(nativeHeadings.first()).toHaveCSS('font-weight', '400');
       await expect(nativeHeadings.first()).toHaveCSS('padding', '4px 8px');
       const nativeRow = slash.locator('.menu-group li').first();
       await expect(nativeRow).toHaveCSS('padding', '4px 8px');
@@ -243,7 +243,7 @@ for (const width of [320, 1024]) {
         '400',
       );
       const secondGroup = slash.locator('.menu-group').nth(1);
-      await expect(secondGroup).toHaveCSS('margin-top', '8px');
+      await expect(secondGroup).toHaveCSS('margin-top', '16px');
       expect(
         await secondGroup.evaluate(
           (el) => getComputedStyle(el, '::before').display,

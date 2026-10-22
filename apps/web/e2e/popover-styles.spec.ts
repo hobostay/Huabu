@@ -64,10 +64,27 @@ for (const width of [320, 1024]) {
         exact: true,
       });
       await expect(externalHeading).toHaveCSS('font-size', '12px');
-      await expect(externalHeading).toHaveCSS('font-weight', '500');
-      await expect(externalHeading).toHaveCSS('margin-top', '8px');
+      await expect(externalHeading).toHaveCSS('font-weight', '400');
+      await expect(externalHeading.locator('..')).toHaveCSS(
+        'margin-top',
+        '16px',
+      );
+      await expect(externalHeading.locator('..')).toHaveCSS(
+        'border-top-width',
+        '0px',
+      );
       await expect(panel.getByRole('separator')).toHaveCount(1);
       await expect(reviewer).toHaveCSS('font-weight', '400');
+      expect(
+        await reviewer.evaluate((el) => getComputedStyle(el).color),
+      ).not.toBe(
+        await externalHeading.evaluate((el) => getComputedStyle(el).color),
+      );
+      const hint = panel.getByText('Built-In Pi', { exact: true }).first();
+      await expect(hint).toHaveCSS('font-size', '12px');
+      expect(await hint.evaluate((el) => getComputedStyle(el).color)).toBe(
+        await externalHeading.evaluate((el) => getComputedStyle(el).color),
+      );
       const insets = await reviewer.evaluate((row) => {
         const parent = row.closest('[data-floating-chrome]');
         if (!parent) throw new Error('Missing Agent menu panel');

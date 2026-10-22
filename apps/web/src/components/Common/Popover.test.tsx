@@ -323,12 +323,13 @@ describe('Popover', () => {
     expect(document.activeElement?.textContent).toBe('Destination');
   });
 
-  it('updates the available width when a coordinate boundary changes', () => {
+  it('updates the available width and height when a coordinate boundary changes', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     let boundaryWidth = 220;
+    let boundaryHeight = 400;
     vi.spyOn(container, 'getBoundingClientRect').mockImplementation(
-      () => new DOMRect(40, 20, boundaryWidth, 400),
+      () => new DOMRect(40, 20, boundaryWidth, boundaryHeight),
     );
     root = createRoot(container);
     act(() => {
@@ -346,10 +347,17 @@ describe('Popover', () => {
     expect(panel?.style.getPropertyValue('--popover-available-width')).toBe(
       '200px',
     );
+    expect(panel?.style.getPropertyValue('--popover-available-height')).toBe(
+      '380px',
+    );
     boundaryWidth = 160;
+    boundaryHeight = 200;
     act(() => window.dispatchEvent(new Event('resize')));
     expect(panel?.style.getPropertyValue('--popover-available-width')).toBe(
       '140px',
+    );
+    expect(panel?.style.getPropertyValue('--popover-available-height')).toBe(
+      '180px',
     );
   });
 

@@ -389,10 +389,10 @@ describe('ExpandedNodePanel edge navigation', () => {
     expect(document.querySelector('[role="menu"]')?.textContent).not.toContain(
       'Sources',
     );
-    const group = document.querySelector('[role="menu"] > div');
+    const group = document.querySelector('[role="menu"] .mt-2');
     expect(group?.classList.contains('mt-2')).toBe(true);
     expect(group?.classList.contains('border-t')).toBe(false);
-    expect(group?.firstElementChild?.classList.contains('font-medium')).toBe(
+    expect(group?.firstElementChild?.classList.contains('font-normal')).toBe(
       true,
     );
   });
@@ -496,7 +496,7 @@ describe('ExpandedNodePanel edge navigation', () => {
     );
   });
 
-  it('restores trigger focus when Escape dismisses the chooser', () => {
+  it('restores trigger focus when Escape dismisses the chooser', async () => {
     renderPanel(
       [
         canvasNode('a', 'Alpha'),
@@ -519,6 +519,9 @@ describe('ExpandedNodePanel edge navigation', () => {
     });
 
     expect(document.querySelector('[role="menu"]')).toBeNull();
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
     expect(document.activeElement).toBe(navigationButton);
   });
 
@@ -534,6 +537,52 @@ describe('ExpandedNodePanel edge navigation', () => {
 
     expect(expandedNodeId()).toBe('a');
     input.remove();
+  });
+
+  it('dismisses the connected-node chooser on Tab using the shared menu contract', () => {
+    renderPanel(
+      [canvasNode('a', 'Alpha'), canvasNode('b', 'Beta')],
+      [edge('a-b', 'a', 'b')],
+    );
+    const trigger = container?.querySelector<HTMLButtonElement>(
+      '[aria-label="Connected node navigation"]',
+    );
+    act(() => trigger?.click());
+    const item = document.querySelector('[role="menuitem"]');
+    const event = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      bubbles: true,
+      cancelable: true,
+    });
+    act(() => item?.dispatchEvent(event));
+    expect(event.defaultPrevented).toBe(false);
+    expect(document.querySelector('[role="menu"]')).toBeNull();
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it('does not reclaim focus after an outside press dismisses the chooser', async () => {
+    renderPanel(
+      [canvasNode('a', 'Alpha'), canvasNode('b', 'Beta')],
+      [edge('a-b', 'a', 'b')],
+    );
+    const trigger = container?.querySelector<HTMLButtonElement>(
+      '[aria-label="Connected node navigation"]',
+    );
+    act(() => trigger?.click());
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const outside = document.createElement('input');
+    container?.append(outside);
+    act(() => {
+      outside.focus();
+      outside.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    });
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
+    expect(document.querySelector('[role="menu"]')).toBeNull();
+    expect(document.activeElement).toBe(outside);
   });
 });
 
