@@ -6,11 +6,11 @@ import { memo, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/components/Common/cn';
+import { NodeRef } from '@/components/Nodes/NodeRef/NodeRef';
 import { useSearchSource } from '@/hooks/useSearchSource';
 import { useGesturePreviewStore } from '@/store/gesturePreviewStore';
 
 import { QuotedCommentCard } from './QuotedCommentCard';
-import { NodeRef } from '../Common/NodeRef';
 
 import type {
   AgentInputKind,

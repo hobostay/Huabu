@@ -10,13 +10,13 @@ import { CenterArea } from '@/pages/CanvasPage/CenterArea.tsx';
 import { MainLayout } from '@/pages/CanvasPage/MainLayout.tsx';
 import { usePanelStore } from '@/store/panelStore';
 import { usePreviewWorkspaceStore } from '@/store/previewWorkspace/store';
+import { revealNodesOnCanvas } from '@/utils/canvasViewport';
 import { readNodeDeepLinkIntent } from '@/utils/nodeDeepLink';
 
 import { Loading } from '../../components/Common/Loading';
 import { toast } from '../../components/Common/Toast';
 import { hasNodePreview } from '../../components/Nodes/previews';
 import { CanvasLayerPanel } from '../../components/Panels/CanvasLayerPanel';
-import { revealNodesOnCanvas } from '../../components/Panels/CanvasLayerPanel/focusNodesOnCanvas';
 import { CanvasHeader } from '../../components/Panels/Header/CanvasHeader.tsx';
 import { PreviewWorkspacePanel } from '../../components/Panels/PreviewWorkspace/PreviewWorkspacePanel';
 import { useGlobalSearchHotkey } from '../../hooks/useGlobalSearchHotkey';

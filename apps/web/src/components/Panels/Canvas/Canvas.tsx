@@ -84,6 +84,7 @@ import {
 import { useSketchHoverRouting } from '@/hooks/useSketchHoverRouting';
 import { useSketchStrokeMove } from '@/hooks/useSketchStrokeMove';
 import { openPreviewNode } from '@/store/previewWorkspace/actions';
+import { anchorViewportCentre } from '@/utils/canvasViewport';
 import { isMac } from '@/utils/platform';
 import { getEdgeIdsBetweenSelectedNodes } from '@/utils/selection';
 
@@ -141,7 +142,6 @@ import {
 import { SpacePreviewNode } from '../../Nodes/spacePreview/SpacePreviewNode.tsx';
 import { VideoNode } from '../../Nodes/video/VideoNode.tsx';
 import { WebNode } from '../../Nodes/web/WebNode.tsx';
-import { anchorViewportCentre } from '../CanvasLayerPanel/focusNodesOnCanvas.ts';
 
 import type { CanvasNode } from '@/components/Nodes/types';
 import type { AddNodeInput } from '@/handler/canvasCommand/uiIntent';
