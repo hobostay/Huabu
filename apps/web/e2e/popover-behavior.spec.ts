@@ -5,6 +5,132 @@ import { expect, test } from '@playwright/test';
 
 test.use({ hasTouch: false });
 
+test('review actions stay visible and restore surviving focus after marker removal', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 400 });
+  await page.goto('/playground/node-toolbars');
+  await page.evaluate(async () => {
+    const load = (path: string) => import(/* @vite-ignore */ path);
+    const { mountPopoverBehaviorFixture } = await load(
+      '/e2e/fixtures/popover-behavior.tsx',
+    );
+    mountPopoverBehaviorFixture(true);
+  });
+  const marker = page.getByRole('button', {
+    name: 'Review AI changes to this block',
+    exact: true,
+  });
+  await marker.focus();
+  await marker.press('Enter');
+  const action = page
+    .locator('[data-prov-popover]')
+    .getByRole('button', { name: 'Reject', exact: true });
+  await expect(action).toBeFocused();
+  await expect
+    .poll(() =>
+      action.evaluate((el) => {
+        const panel = el.closest('[data-floating-chrome]');
+        if (!panel) throw new Error('Missing diff panel');
+        const bounds = panel.getBoundingClientRect();
+        const rect = el.getBoundingClientRect();
+        return (
+          bounds.top >= 0 &&
+          bounds.bottom <= innerHeight &&
+          rect.top >= bounds.top &&
+          rect.bottom <= bounds.bottom
+        );
+      }),
+    )
+    .toBe(true);
+  await page.keyboard.press('Escape');
+  await marker.hover();
+  await marker.click();
+  await expect(action).toBeFocused();
+  await expect(action).toBeInViewport();
+  await action.press('Enter');
+  await expect(marker).toHaveCount(0);
+  const deletion = page.getByRole('button', {
+    name: 'Review 1 AI-deleted block',
+  });
+  await expect(deletion).toBeFocused();
+  await deletion.press('Enter');
+  await page
+    .locator('[data-prov-popover]')
+    .getByRole('button', { name: 'Accept', exact: true })
+    .press('Enter');
+  await expect(deletion).toHaveCount(0);
+  await expect(page.getByRole('textbox')).toBeFocused();
+});
+
+test('removing a pinned marker releases hover without stealing outside focus', async ({
+  page,
+}) => {
+  await page.goto('/playground/node-toolbars');
+  await page.evaluate(async () => {
+    const load = (path: string) => import(/* @vite-ignore */ path);
+    const { mountPopoverBehaviorFixture } = await load(
+      '/e2e/fixtures/popover-behavior.tsx',
+    );
+    mountPopoverBehaviorFixture();
+  });
+  const marker = page.getByRole('button', {
+    name: 'Review AI changes to this block',
+    exact: true,
+  });
+  await marker.click();
+  const remove = page.getByRole('button', { name: 'Remove block marker' });
+  // Dispatch without an outside pointer press so the pinned origin must be cleared by the slot update.
+  await remove.evaluate((el) => {
+    if (!(el instanceof HTMLButtonElement))
+      throw new Error('Missing remove button');
+    el.focus();
+    el.click();
+  });
+  await expect(marker).toHaveCount(0);
+  await expect(remove).toBeFocused();
+  const deletion = page.getByRole('button', {
+    name: 'Review 1 AI-deleted block',
+  });
+  await deletion.hover();
+  await expect(page.locator('[data-prov-popover]')).toBeVisible();
+});
+
+test('destination shortcut reveals its initial choice after overflowing sources', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 500 });
+  await page.goto('/playground/node-toolbars');
+  await page.evaluate(async () => {
+    const load = (path: string) => import(/* @vite-ignore */ path);
+    const { mountConnectedNodeFixture } = await load(
+      '/e2e/fixtures/popover-behavior.tsx',
+    );
+    mountConnectedNodeFixture();
+  });
+  await expect(
+    page.getByRole('button', { name: 'Rename node', exact: true }),
+  ).toHaveText('Target');
+  await page.keyboard.press('ArrowRight');
+  const destination = page.getByRole('menuitem', {
+    name: 'Destination 0',
+    exact: true,
+  });
+  await expect(destination).toBeFocused();
+  await expect(destination).toBeInViewport();
+  await expect
+    .poll(() =>
+      destination.evaluate((el) => {
+        const menu = el.closest('[role="menu"]');
+        if (!menu) throw new Error('Missing connected-node menu');
+        const bounds = menu.getBoundingClientRect();
+        const rect = el.getBoundingClientRect();
+        return rect.top >= bounds.top && rect.bottom <= bounds.bottom;
+      }),
+    )
+    .toBe(true);
+});
+
 for (const width of [320, 1024]) {
   for (const theme of ['light', 'dark']) {
     test(`popover edge cases remain usable at ${width}px in ${theme}`, async ({
@@ -212,8 +338,9 @@ for (const width of [320, 1024]) {
       await expect(page.locator('[data-behavior-result]')).toHaveText(
         'restored',
       );
-      await expect(marker).toBeFocused();
-      await marker.press('Enter');
+      await expect(marker).toHaveCount(0);
+      await expect(editedMarker).toBeFocused();
+      await editedMarker.press('Enter');
       await page
         .getByRole('button', { name: 'Outside action', exact: true })
         .click();

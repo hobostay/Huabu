@@ -108,10 +108,13 @@ const ConnectedNodeMenu = ({
       onOpenChange={onOpenChange}
       onOpenAutoFocus={
         focusDirection
-          ? () =>
-              contentRef.current
-                ?.querySelector<HTMLElement>('[data-menu-initial-focus]')
-                ?.focus({ preventScroll: true })
+          ? () => {
+              const item = contentRef.current?.querySelector<HTMLElement>(
+                '[data-menu-initial-focus]',
+              );
+              item?.focus({ preventScroll: true });
+              item?.scrollIntoView({ block: 'nearest' });
+            }
           : undefined
       }
       align="bottom-left"

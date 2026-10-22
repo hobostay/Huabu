@@ -147,6 +147,24 @@ export function ProvenanceOverlay({
   const markerRefs = useRef(new Map<string, HTMLButtonElement>());
   const panelRef = useRef<HTMLDivElement>(null);
   const keyboardOriginRef = useRef<HTMLButtonElement | null>(null);
+  const completedOriginRef = useRef<HTMLButtonElement | null>(null);
+
+  const focusReviewAction = useCallback(() => {
+    const action = panelRef.current?.querySelector('button');
+    action?.focus({ preventScroll: true });
+    action?.scrollIntoView({ block: 'nearest' });
+  }, []);
+
+  const completeReview = useCallback(() => {
+    window.clearTimeout(hideTimerRef.current);
+    completedOriginRef.current = panelRef.current?.contains(
+      document.activeElement,
+    )
+      ? keyboardOriginRef.current
+      : null;
+    keyboardOriginRef.current = null;
+    setHovered(null);
+  }, []);
 
   const close = useCallback(() => {
     window.clearTimeout(hideTimerRef.current);
@@ -157,6 +175,28 @@ export function ProvenanceOverlay({
   }, []);
 
   useEffect(() => () => window.clearTimeout(hideTimerRef.current), []);
+
+  useEffect(() => {
+    const origin = keyboardOriginRef.current;
+    if (origin && !origin.isConnected) {
+      window.clearTimeout(hideTimerRef.current);
+      keyboardOriginRef.current = null;
+      setHovered(null);
+    }
+    const completed = completedOriginRef.current;
+    if (!completed || completed.isConnected) return;
+    completedOriginRef.current = null;
+    if (document.activeElement !== document.body) return;
+    const marker = [...markerRefs.current.values()].find(
+      (element) => element.isConnected,
+    );
+    if (marker) {
+      marker.focus({ preventScroll: true });
+      marker.scrollIntoView({ block: 'nearest' });
+    } else {
+      editor?.focus();
+    }
+  }, [slots, editor]);
 
   const sig = useMemo(() => {
     const b = blocks.map((x) => `${x.key}@${x.at}`).join(',');
@@ -376,10 +416,7 @@ export function ProvenanceOverlay({
               cancelHide();
               keyboardOriginRef.current = event.currentTarget;
               setHovered({ kind: slot.kind, key: id });
-              if (active)
-                panelRef.current
-                  ?.querySelector('button')
-                  ?.focus({ preventScroll: true });
+              if (active) focusReviewAction();
             }}
             onMouseEnter={() => {
               if (keyboardOriginRef.current) return;
@@ -426,10 +463,7 @@ export function ProvenanceOverlay({
                 })
           }
           onOpenAutoFocus={() => {
-            if (keyboardOriginRef.current)
-              panelRef.current
-                ?.querySelector('button')
-                ?.focus({ preventScroll: true });
+            if (keyboardOriginRef.current) focusReviewAction();
           }}
           onMouseEnter={cancelHide}
           onMouseLeave={scheduleHide}
@@ -439,7 +473,7 @@ export function ProvenanceOverlay({
           onInsertBelow={onInsertBelow}
           onRestoreTombstone={onRestoreTombstone}
           onDismissTombstone={onDismissTombstone}
-          onClose={close}
+          onClose={completeReview}
           onDismiss={(reason) => {
             if (reason === 'escape') close();
             else {
@@ -520,7 +554,7 @@ function DiffPopover({
       onOpenAutoFocus={onOpenAutoFocus}
       onDismiss={onDismiss}
       style={{ width: slot.width }}
-      className="max-h-[min(25rem,calc(100dvh-24px))] overflow-y-auto overscroll-contain p-3 wrap-anywhere"
+      className="max-h-[min(25rem,var(--popover-available-height,calc(100dvh-24px)))] overflow-y-auto overscroll-contain p-3 wrap-anywhere"
     >
       <div
         role="dialog"
