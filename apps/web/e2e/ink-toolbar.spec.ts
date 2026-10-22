@@ -130,7 +130,10 @@ test('Ink excludes built-in Chat from new and recent destinations while retainin
     menu.getByRole('menuitem', { name: /Conversation 2/ }),
   ).toBeEnabled();
   const newGroup = menu.getByRole('group', { name: 'New conversation' });
-  await expect(newGroup).toHaveCSS('margin-top', '8px');
+  await expect(newGroup).toHaveCSS('margin-top', '0px');
+  await expect(menu.getByRole('separator')).toHaveCount(1);
+  await expect(menu.getByRole('separator')).toHaveCSS('margin-top', '8px');
+  await expect(menu.getByRole('separator')).toHaveCSS('margin-bottom', '8px');
   await expect(newGroup).toHaveCSS('border-top-width', '0px');
   for (const label of ['New conversation', 'External Agents']) {
     await expect(newGroup.getByText(label, { exact: true })).toHaveCSS(
@@ -139,7 +142,7 @@ test('Ink excludes built-in Chat from new and recent destinations while retainin
     );
     await expect(newGroup.getByText(label, { exact: true })).toHaveCSS(
       'font-weight',
-      '500',
+      '400',
     );
     await expect(newGroup.getByText(label, { exact: true })).toHaveCSS(
       'text-transform',
@@ -189,6 +192,13 @@ for (const pointerOpen of ['click', 'tap'] as const) {
     await expect(externalHeading).toBeVisible();
     await expect(externalHeading).toHaveCSS('text-transform', 'none');
     await expect(externalHeading).toHaveCSS('padding-left', '8px');
+    await expect(externalHeading).toHaveCSS('font-size', '12px');
+    await expect(externalHeading).toHaveCSS('font-weight', '400');
+    await expect(externalHeading.locator('..')).toHaveCSS('margin-top', '8px');
+    await expect(externalHeading.locator('..')).toHaveCSS('margin-left', '0px');
+    await expect(
+      newGroup.getByText('New conversation', { exact: true }),
+    ).toHaveCSS('font-weight', '400');
     await expect(
       externalHeading.locator('..').locator('.bg-edge-default'),
     ).toHaveCount(0);
@@ -454,7 +464,7 @@ for (const locale of ['zh-CN', 'en']) {
       await expect
         .poll(() =>
           page.getByRole('menu').evaluate((menu) => {
-            const panel = menu.parentElement;
+            const panel = menu.closest('[data-floating-chrome]');
             const toolbar = document.querySelector('.ink-context-toolbar');
             if (!panel || !toolbar) return 0;
             return (

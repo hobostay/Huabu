@@ -3,14 +3,7 @@
 
 import clsx from 'clsx';
 import { ArrowLeft, ArrowRight, TableOfContents, X } from 'lucide-react';
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type KeyboardEvent as ReactKeyboardEvent,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { getNodeIcon } from '@/config/nodeIcons.ts';
@@ -106,67 +99,25 @@ const ConnectedNodeMenu = ({
   onOpenChange,
   onSelect,
 }: ConnectedNodeMenuProps) => {
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const wasOpenRef = useRef(open);
-  const restoreTriggerFocusRef = useRef(true);
-
-  useEffect(() => {
-    const wasOpen = wasOpenRef.current;
-    wasOpenRef.current = open;
-    if (wasOpen && !open) {
-      if (restoreTriggerFocusRef.current) {
-        triggerRef.current?.focus({ preventScroll: true });
-      }
-      restoreTriggerFocusRef.current = true;
-    }
-  }, [open]);
-
-  const handleMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (
-      event.key !== 'ArrowDown' &&
-      event.key !== 'ArrowUp' &&
-      event.key !== 'Home' &&
-      event.key !== 'End'
-    ) {
-      return;
-    }
-
-    const items = Array.from(
-      event.currentTarget.querySelectorAll<HTMLButtonElement>(
-        '[role="menuitem"]',
-      ),
-    );
-    if (items.length === 0) return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    const currentIndex = items.indexOf(
-      document.activeElement as HTMLButtonElement,
-    );
-    if (event.key === 'Home') {
-      items[0].focus();
-    } else if (event.key === 'End') {
-      items.at(-1)?.focus();
-    } else {
-      const delta = event.key === 'ArrowDown' ? 1 : -1;
-      const nextIndex =
-        currentIndex === -1
-          ? 0
-          : (currentIndex + delta + items.length) % items.length;
-      items[nextIndex].focus();
-    }
-  };
+  const contentRef = useRef<HTMLDivElement>(null);
 
   return (
     <DropdownMenu
+      aria-label={menuLabel}
       open={open}
-      contentRole="presentation"
       onOpenChange={onOpenChange}
+      onOpenAutoFocus={
+        focusDirection
+          ? () =>
+              contentRef.current
+                ?.querySelector<HTMLElement>('[data-menu-initial-focus]')
+                ?.focus({ preventScroll: true })
+          : undefined
+      }
       align="bottom-left"
       className="min-w-56"
       trigger={
         <PreviewHeaderButton
-          ref={triggerRef}
           title={title}
           aria-label={title}
           aria-haspopup="menu"
@@ -177,12 +128,7 @@ const ConnectedNodeMenu = ({
         </PreviewHeaderButton>
       }
     >
-      <div
-        role="menu"
-        tabIndex={-1}
-        aria-label={menuLabel}
-        onKeyDown={handleMenuKeyDown}
-      >
+      <div ref={contentRef}>
         {groups.map((group) => {
           return (
             <div key={group.direction} className={MENU_GROUP_CLASS}>
@@ -224,11 +170,12 @@ const ConnectedNodeMenu = ({
                   <DropdownMenuItem
                     key={neighbor.id}
                     icon={<NodeTypeIcon size={13} />}
-                    autoFocus={
+                    data-menu-initial-focus={
                       group.direction === focusDirection && index === 0
+                        ? ''
+                        : undefined
                     }
                     onClick={() => {
-                      restoreTriggerFocusRef.current = false;
                       onSelect(neighbor.id);
                     }}
                   >

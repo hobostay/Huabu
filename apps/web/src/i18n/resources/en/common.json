@@ -1298,7 +1298,7 @@
       "changed": "Ink selection or destination changed. Submit again.",
       "continue": "Continue",
       "newConversation": "New conversation",
-      "continueCanvas": "Continue conversation · Current canvas",
+      "continueCanvas": "Continue conversation",
       "emptyConversations": "No conversations to continue on this canvas",
       "menuLabel": "Ink request destination",
       "newDestinationLabel": "Choose destination: New conversation with {{agent}}",

@@ -41,8 +41,8 @@ test('shared menus keep default metrics, states and behaviors without toolbar ov
   await expect(label).toHaveCSS('line-height', '18px');
   await expect(label).toHaveCSS('text-align', 'left');
   await expect(label).toHaveCSS('text-transform', 'none');
-  await expect(label).toHaveCSS('font-weight', '500');
-  await expect(label).toHaveCSS('margin-top', '8px');
+  await expect(label).toHaveCSS('font-weight', '400');
+  await expect(label).toHaveCSS('margin-top', '16px');
   await selected
     .locator('xpath=ancestor::*[@data-floating-chrome][1]')
     .screenshot({

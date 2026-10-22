@@ -96,6 +96,8 @@ interface AgentMenuOptionsProps {
   currentMode: AgentMode;
   profiles: AgentProfileView[];
   builtInModes?: readonly AgentMode[];
+  /** External choices can be peers of the heading or nested within it. */
+  externalGroup?: 'peer' | 'nested';
   /** Grey out every row (e.g. mid-stream) without closing the menu. */
   busy?: boolean;
   /** Tooltip applied to whichever row matches the current binding. */
@@ -116,6 +118,7 @@ export function AgentMenuOptions({
   currentMode,
   profiles,
   builtInModes,
+  externalGroup = 'peer',
   busy,
   currentRowTitle,
   onSelect,
@@ -161,11 +164,8 @@ export function AgentMenuOptions({
           );
         })}
       {profiles.length > 0 && (
-        <>
-          <div
-            role="presentation"
-            className={cn(MENU_SECTION_LABEL_CLASS, MENU_GROUP_CLASS)}
-          >
+        <div className={externalGroup === 'nested' ? 'mt-2' : MENU_GROUP_CLASS}>
+          <div role="presentation" className={MENU_SECTION_LABEL_CLASS}>
             {t('chat.externalAgents')}
           </div>
           {profiles.map((profile) => {
@@ -195,7 +195,7 @@ export function AgentMenuOptions({
               />
             );
           })}
-        </>
+        </div>
       )}
       {onAddAgent && (
         <>
